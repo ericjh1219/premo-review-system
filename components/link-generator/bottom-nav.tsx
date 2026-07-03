@@ -15,7 +15,7 @@ const navItems = [
   { icon: Home, bg: "bg-[#4ecdc4]", iconClass: "text-white", href: "/link-generator" },
   { icon: FileText, bg: "bg-[#facc15]", iconClass: "text-[#1a1a1a]", href: "/link-generator/posts" },
   { icon: BarChart3, bg: "bg-[#1a1a1a]", iconClass: "text-white", href: "/link-generator/dashboard" },
-  { icon: User, bg: "bg-[#fdba74]", iconClass: "text-[#1a1a1a]" },
+  { icon: User, bg: "bg-[#fdba74]", iconClass: "text-[#1a1a1a]", href: "/link-generator/profile" },
   { icon: LogOut, bg: "bg-[#ec4899]", iconClass: "text-white" },
 ];
 

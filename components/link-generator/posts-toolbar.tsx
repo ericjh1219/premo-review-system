@@ -40,7 +40,7 @@ export function PostsToolbar({
     <div className="flex flex-wrap items-center gap-3">
       <h1 className="mr-auto text-3xl font-extrabold tracking-tight text-[#1a1a1a]">Posts</h1>
 
-      <div className="relative">
+      <div className="relative shrink-0">
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-[#9ca3af]" />
         <input
           value={search}
@@ -51,8 +51,10 @@ export function PostsToolbar({
       </div>
 
       <Select value={batch} onValueChange={(value) => onBatchChange(value ?? "all")}>
-        <SelectTrigger className="h-10 min-w-[130px] bg-white/70">
-          <SelectValue>{(value: string) => (value === "all" ? "All Batch" : value)}</SelectValue>
+        <SelectTrigger className="h-10 w-fit min-w-[130px] shrink-0 bg-white/70">
+          <SelectValue className="*:line-clamp-none">
+            {(value: string) => (value === "all" ? "All Batch" : value)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Batch</SelectItem>
@@ -68,8 +70,8 @@ export function PostsToolbar({
         value={socialPlatform}
         onValueChange={(value) => onSocialPlatformChange(value ?? "all")}
       >
-        <SelectTrigger className="h-10 min-w-[170px] bg-white/70">
-          <SelectValue>
+        <SelectTrigger className="h-10 w-fit min-w-[170px] shrink-0 bg-white/70">
+          <SelectValue className="*:line-clamp-none">
             {(value: string) => (value === "all" ? "All Social Platform" : value)}
           </SelectValue>
         </SelectTrigger>
@@ -84,8 +86,8 @@ export function PostsToolbar({
       </Select>
 
       <Select value={usedFilter} onValueChange={(value) => onUsedFilterChange(value ?? "all")}>
-        <SelectTrigger className="h-10 min-w-[90px] bg-white/70">
-          <SelectValue>
+        <SelectTrigger className="h-10 w-fit min-w-[90px] shrink-0 bg-white/70">
+          <SelectValue className="*:line-clamp-none">
             {(value: string) => {
               if (value === "used") return "Used";
               if (value === "unused") return "Unused";
@@ -103,7 +105,7 @@ export function PostsToolbar({
       <button
         type="button"
         onClick={onCreatePost}
-        className="flex h-10 items-center gap-1.5 rounded-full bg-[#facc15] px-5 text-sm font-bold text-[#1a1a1a] shadow-sm"
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-[#facc15] px-5 text-sm font-bold text-[#1a1a1a] shadow-sm"
       >
         Create Post
         <Pencil className="size-3.5" />
