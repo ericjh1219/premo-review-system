@@ -59,7 +59,7 @@ export default function LoginPage() {
                   className="h-10"
                 />
               </div>
-              <Button render={<Link href="/dashboard" />} className="h-10 w-full">
+              <Button render={<Link href="/dashboard" />} nativeButton={false} className="h-10 w-full">
                 Sign in
               </Button>
             </form>
