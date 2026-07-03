@@ -1,15 +1,3 @@
-export type TrackingAction = "Page Entry" | "Click";
-
-export type TrackingEvent = {
-  id: string;
-  timestamp: string;
-  visitorId: string;
-  platform: string;
-  action: TrackingAction;
-  link: string;
-  device: string;
-};
-
 export type LuckyDrawStatus = "Pending" | "Winner" | "Not Selected";
 
 export type LuckyDrawParticipant = {
@@ -38,26 +26,6 @@ export const PLATFORM_OPTIONS = [
   "Custom Webpage",
   "Upload Proof",
 ];
-
-const PLATFORM_LINK_CODES: Record<string, string> = {
-  "WiFi Connect": "WFC8",
-  Facebook: "FB29",
-  "Google Review": "GRV1",
-  "Instagram Story": "IGS7",
-  Rednote: "RDN3",
-  Lemon8: "LM82",
-  TikTok: "TTK5",
-  Weixin: "WXN6",
-  "Facebook Follow": "FBF4",
-  "Instagram Follow": "IGF8",
-  "Tiktok Follow": "TTF9",
-  "Lemon8 Follow": "LMF1",
-  "XHS Follow": "XHF2",
-  "Custom Webpage": "CWP0",
-  "Upload Proof": "UPR3",
-};
-
-const DEVICES = ["Mobile", "Desktop", "Tablet"];
 
 const FIRST_NAMES = [
   "Sarah",
@@ -100,53 +68,6 @@ function mulberry32(seed: number) {
 const NOW = new Date("2026-07-03T12:00:00Z").getTime();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function generateTrackingEvents(): TrackingEvent[] {
-  const random = mulberry32(20260703);
-  const events: TrackingEvent[] = [];
-  let counter = 1;
-
-  for (let daysAgo = 0; daysAgo < 60; daysAgo++) {
-    const eventsToday = 1 + Math.floor(random() * 5);
-
-    for (let i = 0; i < eventsToday; i++) {
-      const hourOffset = Math.floor(random() * 24);
-      const minuteOffset = Math.floor(random() * 60);
-      const timestamp = new Date(
-        NOW - daysAgo * DAY_MS - hourOffset * 60 * 60 * 1000 - minuteOffset * 60 * 1000
-      );
-
-      const isPageEntry = random() < 0.3;
-      const device = DEVICES[Math.floor(random() * DEVICES.length)];
-      const visitorId = `VIS-${(1000 + Math.floor(random() * 8999)).toString()}`;
-
-      if (isPageEntry) {
-        events.push({
-          id: `EVT-${counter++}`,
-          timestamp: timestamp.toISOString(),
-          visitorId,
-          platform: "-",
-          action: "Page Entry",
-          link: "https://jshare.link/share/Premo/ZT68/",
-          device,
-        });
-      } else {
-        const platform = PLATFORM_OPTIONS[Math.floor(random() * PLATFORM_OPTIONS.length)];
-        events.push({
-          id: `EVT-${counter++}`,
-          timestamp: timestamp.toISOString(),
-          visitorId,
-          platform,
-          action: "Click",
-          link: `https://jshare.link/share/Premo/${PLATFORM_LINK_CODES[platform]}`,
-          device,
-        });
-      }
-    }
-  }
-
-  return events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-}
-
 function generateLuckyDrawParticipants(): LuckyDrawParticipant[] {
   const random = mulberry32(42);
   const participants: LuckyDrawParticipant[] = [];
@@ -176,5 +97,4 @@ function generateLuckyDrawParticipants(): LuckyDrawParticipant[] {
   );
 }
 
-export const MOCK_TRACKING_EVENTS: TrackingEvent[] = generateTrackingEvents();
 export const MOCK_LUCKY_DRAW_PARTICIPANTS: LuckyDrawParticipant[] = generateLuckyDrawParticipants();

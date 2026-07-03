@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { TrackingEvent } from "@/lib/dashboard-data";
+import type { TrackingEvent } from "@/lib/tracking-service";
 
 type TrackingReportModalProps = {
   open: boolean;
@@ -36,7 +36,7 @@ export function TrackingReportModal({ open, onOpenChange, events }: TrackingRepo
     if (!query) return events;
 
     return events.filter((event) =>
-      [event.visitorId, event.platform, event.action, event.link, event.device]
+      [event.visitorId, event.platform, event.action, event.link ?? "", event.device]
         .join(" ")
         .toLowerCase()
         .includes(query)
@@ -94,7 +94,7 @@ export function TrackingReportModal({ open, onOpenChange, events }: TrackingRepo
                     <td className="px-3 py-2 text-[#1a1a1a]">{event.platform}</td>
                     <td className="px-3 py-2 text-[#1a1a1a]">{event.action}</td>
                     <td className="max-w-[220px] truncate px-3 py-2 text-[#57534e]">
-                      {event.link}
+                      {event.link ?? "-"}
                     </td>
                     <td className="px-3 py-2 text-[#1a1a1a]">{event.device}</td>
                   </tr>

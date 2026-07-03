@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CheckCheck, Citrus, LogIn, Wifi } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { MdOutlineAdUnits } from "react-icons/md";
@@ -13,11 +13,8 @@ import { HelpBadge } from "@/components/link-generator/help-badge";
 import { LuckyDrawReportModal } from "@/components/link-generator/lucky-draw-report-modal";
 import { StatCard } from "@/components/link-generator/stat-card";
 import { TrackingReportModal } from "@/components/link-generator/tracking-report-modal";
-import {
-  MOCK_LUCKY_DRAW_PARTICIPANTS,
-  MOCK_TRACKING_EVENTS,
-  PLATFORM_OPTIONS,
-} from "@/lib/dashboard-data";
+import { MOCK_LUCKY_DRAW_PARTICIPANTS, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
+import { DEFAULT_BUSINESS_ID, trackingService } from "@/lib/tracking-service";
 
 const PLATFORM_ICONS: Record<string, ReactNode> = {
   "WiFi Connect": <Wifi className="size-[18px] text-[#64748b]" />,
@@ -37,24 +34,47 @@ const PLATFORM_ICONS: Record<string, ReactNode> = {
   "Upload Proof": <CheckCheck className="size-[18px] text-[#ef4444]" />,
 };
 
-const DEFAULT_START = "2026-06-25T20:49";
-const DEFAULT_END = "2026-07-02T20:49";
+function toLocalInputValue(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+}
+
+function defaultStart() {
+  return toLocalInputValue(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+}
+
+function defaultEnd() {
+  return toLocalInputValue(new Date());
+}
 
 export default function LinkGeneratorDashboardPage() {
-  const [startTime, setStartTime] = useState(DEFAULT_START);
-  const [endTime, setEndTime] = useState(DEFAULT_END);
+  const [startTime, setStartTime] = useState(defaultStart);
+  const [endTime, setEndTime] = useState(defaultEnd);
   const [trackingOpen, setTrackingOpen] = useState(false);
   const [luckyDrawOpen, setLuckyDrawOpen] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    function refresh() {
+      setRefreshTick((tick) => tick + 1);
+    }
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
 
   const rangeStart = startTime ? new Date(startTime).getTime() : -Infinity;
   const rangeEnd = endTime ? new Date(endTime).getTime() : Infinity;
 
   const filteredEvents = useMemo(() => {
-    return MOCK_TRACKING_EVENTS.filter((event) => {
-      const time = new Date(event.timestamp).getTime();
-      return time >= rangeStart && time <= rangeEnd;
-    });
-  }, [rangeStart, rangeEnd]);
+    return trackingService.getEventsInRange(DEFAULT_BUSINESS_ID, rangeStart, rangeEnd);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeStart, rangeEnd, refreshTick]);
 
   const filteredParticipants = useMemo(() => {
     return MOCK_LUCKY_DRAW_PARTICIPANTS.filter((participant) => {
@@ -64,7 +84,7 @@ export default function LinkGeneratorDashboardPage() {
   }, [rangeStart, rangeEnd]);
 
   const pageEntryCount = useMemo(
-    () => filteredEvents.filter((event) => event.action === "Page Entry").length,
+    () => filteredEvents.filter((event) => event.platform === "Page Entry").length,
     [filteredEvents]
   );
 
@@ -72,9 +92,7 @@ export default function LinkGeneratorDashboardPage() {
     () =>
       PLATFORM_OPTIONS.map((label) => ({
         label,
-        value: filteredEvents.filter(
-          (event) => event.action === "Click" && event.platform === label
-        ).length,
+        value: filteredEvents.filter((event) => event.platform === label).length,
         icon: PLATFORM_ICONS[label],
       })),
     [filteredEvents]

@@ -7,10 +7,10 @@ import { ShareButton } from "@/components/share-page/share-button";
 import { TemplatePickerDialog } from "@/components/share-page/template-picker-dialog";
 import { WifiDialog } from "@/components/share-page/wifi-dialog";
 import { Toast } from "@/components/link-generator/toast";
-import { recordCustomerEvent } from "@/lib/customer-tracking-storage";
 import { loadLuckyDrawSettings } from "@/lib/lucky-draw-settings";
 import { loadProfileData, type PlatformKey } from "@/lib/profile-storage";
 import { getReviewTemplates, type ReviewTemplate } from "@/lib/review-templates";
+import { trackingService } from "@/lib/tracking-service";
 
 type PlatformDefinition = {
   key: PlatformKey;
@@ -52,7 +52,7 @@ export default function CustomerSharePage({
 
   useEffect(() => {
     setProfile(loadProfileData());
-    recordCustomerEvent(businessId, "-", "Page Entry");
+    trackingService.recordEvent(businessId, "Page Entry", "View");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -114,7 +114,7 @@ export default function CustomerSharePage({
     } catch {
       setToastMessage(`Opening ${platform}... (copy the review manually if needed)`);
     }
-    recordCustomerEvent(businessId, platform, "Share");
+    trackingService.recordEvent(businessId, platform, "Share", link);
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
@@ -139,12 +139,13 @@ export default function CustomerSharePage({
 
   function handleFollowClick(definition: PlatformDefinition) {
     if (!definition.followName) return;
-    recordCustomerEvent(businessId, definition.followName, "Follow");
-    window.open(buildFollowLink(definition.followName), "_blank", "noopener,noreferrer");
+    const link = buildFollowLink(definition.followName);
+    trackingService.recordEvent(businessId, definition.followName, "Follow", link);
+    window.open(link, "_blank", "noopener,noreferrer");
   }
 
   function handleWifiClick() {
-    recordCustomerEvent(businessId, "WiFi Connect", "Connect");
+    trackingService.recordEvent(businessId, "WiFi Connect", "Connect");
     setWifiOpen(true);
   }
 
@@ -156,12 +157,17 @@ export default function CustomerSharePage({
   }
 
   function handleCustomWebpageClick() {
-    recordCustomerEvent(businessId, "Custom Webpage", "Visit");
+    trackingService.recordEvent(businessId, "Custom Webpage", "Visit", profile.customWebPage.customLink);
     window.open(profile.customWebPage.customLink, "_blank", "noopener,noreferrer");
   }
 
-  function handleSubmitted() {
-    recordCustomerEvent(businessId, "Upload Proof", "Submit");
+  function handleSubmitted(result: { hasProofImage: boolean; luckyDrawEntry: boolean }) {
+    if (result.hasProofImage) {
+      trackingService.recordEvent(businessId, "Upload Proof", "Submit");
+    }
+    if (result.luckyDrawEntry) {
+      trackingService.recordEvent(businessId, "Lucky Draw Entry", "Entry");
+    }
     setToastMessage("Submitted successfully! Thank you.");
   }
 

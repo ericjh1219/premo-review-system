@@ -10,7 +10,7 @@ type ClaimRewardSectionProps = {
   showUploadProof: boolean;
   showLuckyDraw: boolean;
   luckyDrawPrize: string;
-  onSubmitted: () => void;
+  onSubmitted: (result: { hasProofImage: boolean; luckyDrawEntry: boolean }) => void;
 };
 
 export function ClaimRewardSection({
@@ -43,20 +43,23 @@ export function ClaimRewardSection({
   }
 
   function handleSubmit() {
+    const entryLuckyDraw = showLuckyDraw && luckyDrawEntry;
+
     saveCustomerSubmission(businessId, {
       name,
       phone,
       email,
       proofImage,
-      luckyDrawEntry: showLuckyDraw && luckyDrawEntry,
+      luckyDrawEntry: entryLuckyDraw,
     });
 
+    const hadProofImage = Boolean(proofImage);
     setName("");
     setPhone("");
     setEmail("");
     setProofImage(null);
     setLuckyDrawEntry(false);
-    onSubmitted();
+    onSubmitted({ hasProofImage: hadProofImage, luckyDrawEntry: entryLuckyDraw });
   }
 
   return (
