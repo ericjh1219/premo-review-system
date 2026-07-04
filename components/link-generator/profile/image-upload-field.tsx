@@ -12,6 +12,49 @@ type ImageUploadFieldProps = {
   className?: string;
 };
 
+const MAX_IMAGE_DIMENSION = 800;
+const IMAGE_QUALITY = 0.8;
+
+/**
+ * Downscales the image and re-encodes it as JPEG before it's stored as a
+ * data URL. Raw phone photos can be several MB each — storing three of them
+ * (profile, background, custom web page) uncompressed easily exceeds the
+ * localStorage quota and throws, which silently breaks the entire Profile
+ * save (not just the image field). Always resolves, falling back to the
+ * original data URL if the image can't be decoded/redrawn.
+ */
+function resizeImage(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const original = String(reader.result ?? "");
+      const image = new Image();
+
+      image.onload = () => {
+        const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
+        const width = Math.round(image.width * scale) || image.width;
+        const height = Math.round(image.height * scale) || image.height;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) {
+          resolve(original);
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", IMAGE_QUALITY));
+      };
+      image.onerror = () => resolve(original);
+      image.src = original;
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ImageUploadField({
   label,
   image,
@@ -21,16 +64,13 @@ export function ImageUploadField({
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange(String(reader.result ?? ""));
-    };
-    reader.readAsDataURL(file);
-    event.target.value = "";
+    const dataUrl = await resizeImage(file);
+    if (dataUrl) onChange(dataUrl);
   }
 
   return (

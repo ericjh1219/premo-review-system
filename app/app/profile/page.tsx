@@ -140,8 +140,8 @@ export default function ProfilePage() {
   }
 
   function handleSave() {
-    saveProfileData(resolveBusinessId(), data);
-    setToastMessage("Profile saved successfully.");
+    const result = saveProfileData(resolveBusinessId(), data);
+    setToastMessage(result.success ? "Profile saved successfully." : (result.error ?? "Unable to save profile."));
   }
 
   const languageSelectedCount = Number(data.languagePreference.english) + Number(data.languagePreference.chinese);

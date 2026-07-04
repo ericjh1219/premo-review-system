@@ -239,7 +239,19 @@ export function loadProfileData(businessId: string): ProfileData {
   }
 }
 
-export function saveProfileData(businessId: string, data: ProfileData) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(businessId), JSON.stringify(data));
+export function saveProfileData(
+  businessId: string,
+  data: ProfileData
+): { success: boolean; error?: string } {
+  if (typeof window === "undefined") return { success: false, error: "Not available on the server." };
+
+  try {
+    window.localStorage.setItem(storageKey(businessId), JSON.stringify(data));
+    return { success: true };
+  } catch {
+    return {
+      success: false,
+      error: "Unable to save — your images may be too large. Try a smaller photo.",
+    };
+  }
 }
