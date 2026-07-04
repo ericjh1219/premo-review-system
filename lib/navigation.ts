@@ -6,6 +6,7 @@ import {
   Megaphone,
   MessageCircle,
   Settings,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -17,6 +18,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { title: "Businesses", href: "/businesses", icon: Building2 },
   { title: "Customers", href: "/customers", icon: Users },
   { title: "Reviews", href: "/reviews", icon: Star },
   { title: "QR Codes", href: "/qr-codes", icon: QrCode },
