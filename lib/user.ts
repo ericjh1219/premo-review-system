@@ -18,6 +18,10 @@ function storageKey(businessId: string) {
   return `premo-users:${businessId}`;
 }
 
+/**
+ * Business contacts never log in — only internal PREMO admins/staff do (see
+ * lib/admin.ts). This is just the demo business's default primary contact.
+ */
 const DEMO_OWNER: BusinessUser = {
   id: "user-premo-owner",
   businessId: DEMO_BUSINESS.id,

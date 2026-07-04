@@ -53,6 +53,16 @@ export default function CustomerSharePage({
   useEffect(() => {
     setProfile(loadProfileData(businessId));
     trackingService.recordEvent(businessId, "Page Entry", "View");
+
+    function refresh() {
+      setProfile(loadProfileData(businessId));
+    }
+    window.addEventListener("storage", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener("focus", refresh);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,6 +132,7 @@ export default function CustomerSharePage({
     const link = buildShareLink(definition.shareName);
     const templates = getReviewTemplates(
       definition.shareName,
+      profile.business.name,
       instructionFor[definition.shareName as keyof typeof instructionFor]
     );
 
@@ -182,7 +193,16 @@ export default function CustomerSharePage({
   const showCustomWebpage = profile.customWebPage.customLink.trim().length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-black to-[#71717a] pb-16">
+    <div
+      className="min-h-screen bg-gradient-to-b from-black to-[#71717a] bg-cover bg-center pb-16"
+      style={
+        profile.backgroundImage
+          ? {
+              backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(113,113,122,0.75)), url(${profile.backgroundImage})`,
+            }
+          : undefined
+      }
+    >
       <div className="mx-auto w-full max-w-md space-y-4 px-5 pt-10">
         <div className="flex flex-col items-center">
           <div className="relative size-40 overflow-hidden rounded-[28px] shadow-lg">
@@ -194,11 +214,10 @@ export default function CustomerSharePage({
                 className="size-full object-cover"
               />
             ) : (
-              <div className="flex size-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#e0777d] to-[#c85a63]">
+              <div className="flex size-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#e0777d] to-[#c85a63] p-2">
                 <span className="text-4xl">🐻</span>
-                <span className="text-lg font-black tracking-wide text-white">PREMO</span>
-                <span className="-mt-1 text-[10px] font-semibold tracking-[0.2em] text-white/90">
-                  STUDIO
+                <span className="max-w-full truncate text-center text-sm font-black tracking-wide text-white">
+                  {profile.business.name || "Your Business"}
                 </span>
               </div>
             )}
@@ -218,6 +237,7 @@ export default function CustomerSharePage({
               hasMultipleTemplates={
                 getReviewTemplates(
                   definition.shareName,
+                  profile.business.name,
                   instructionFor[definition.shareName as keyof typeof instructionFor]
                 ).length > 1
               }

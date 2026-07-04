@@ -6,21 +6,25 @@ import { LinkRow } from "@/components/link-generator/link-row";
 import { QueryParametersForm } from "@/components/link-generator/query-parameters-form";
 import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
-import { getCurrentBusinessId } from "@/lib/business";
+import { resolveBusinessId } from "@/lib/auth";
 import {
   DEFAULT_LINK_GENERATOR_DATA,
   loadLinkGeneratorData,
   saveLinkGeneratorData,
   type LinkGeneratorData,
 } from "@/lib/link-generator-storage";
+import { DEFAULT_PROFILE_DATA, loadProfileData, type ProfileData } from "@/lib/profile-storage";
 
 export default function LinkGeneratorPage() {
   const [links, setLinks] = useState<LinkGeneratorData>(DEFAULT_LINK_GENERATOR_DATA);
   const [locked, setLocked] = useState({ staticPageLink: true, xhsShareLink: true });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
 
   useEffect(() => {
-    setLinks(loadLinkGeneratorData(getCurrentBusinessId()));
+    const businessId = resolveBusinessId();
+    setLinks(loadLinkGeneratorData(businessId));
+    setProfile(loadProfileData(businessId));
   }, []);
 
   function handleChange(key: keyof LinkGeneratorData, value: string) {
@@ -33,7 +37,7 @@ export default function LinkGeneratorPage() {
 
       if (nextLocked) {
         setLinks((currentLinks) => {
-          const businessId = getCurrentBusinessId();
+          const businessId = resolveBusinessId();
           const persisted = loadLinkGeneratorData(businessId);
           saveLinkGeneratorData(businessId, { ...persisted, [key]: currentLinks[key] });
           return currentLinks;
@@ -57,7 +61,7 @@ export default function LinkGeneratorPage() {
     <div className="min-h-screen bg-[#daf0ed] pb-28">
       <div className="mx-auto w-full max-w-2xl px-5 pt-7 sm:px-6 sm:pt-8">
         <h1 className="text-[22px] font-bold tracking-tight text-[#1a1a1a] sm:text-[24px]">
-          Welcome, Premo
+          Welcome, {profile.business.name || "there"}
         </h1>
 
         <div className="mt-5">

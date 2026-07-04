@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,42 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getAuthenticatedAdmin } from "@/lib/auth";
+import { changePassword } from "@/lib/admin";
 
 export default function SettingsPage() {
+  const [admin] = useState(getAuthenticatedAdmin);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  function handleChangePassword() {
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (!admin) {
+      setPasswordError("You must be signed in to change your password.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    const result = changePassword(admin.id, currentPassword, newPassword);
+    if (!result.success) {
+      setPasswordError(result.error ?? "Unable to change password.");
+      return;
+    }
+
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordSuccess("Password changed successfully.");
+  }
+
   return (
     <>
       <PageHeader
@@ -54,6 +89,51 @@ export default function SettingsPage() {
                 <Input id="settingsEmail" type="email" defaultValue="admin@premo.io" />
               </div>
               <Button size="sm">Save changes</Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/60 bg-card/80 shadow-sm backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Change Password</CardTitle>
+              <CardDescription>Update the password for your admin account</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="currentPassword">Current password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(event) => setCurrentPassword(event.target.value)}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New password</Label>
+                  <Input
+                    id="newPassword"
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm new password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                  />
+                </div>
+              </div>
+              {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
+              {passwordSuccess && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">{passwordSuccess}</p>
+              )}
+              <Button size="sm" onClick={handleChangePassword}>
+                Change password
+              </Button>
             </CardContent>
           </Card>
 

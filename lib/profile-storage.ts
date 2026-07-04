@@ -17,12 +17,14 @@ export type ProfileData = {
   profileImage: string | null;
   backgroundImage: string | null;
   business: {
+    name: string;
     instagramUsername: string;
     facebookUsername: string;
     xhsUserId: string;
     tiktokUsername: string;
     lemon8Username: string;
     googlePlaceId: string;
+    whatsappNumber: string;
     slogan: string;
   };
   customWebPage: {
@@ -81,26 +83,35 @@ export const PLATFORM_ORDER: PlatformKey[] = [
   "lemon8",
 ];
 
+/**
+ * Blank-slate defaults for any business that hasn't set up its profile yet.
+ * Deliberately free of any brand-specific identity/contact values (business
+ * name, social usernames, Google Place ID, WhatsApp number, WiFi
+ * credentials, custom website) so a new business never inherits another
+ * business's demo data.
+ */
 export const DEFAULT_PROFILE_DATA: ProfileData = {
   profileImage: null,
   backgroundImage: null,
   business: {
-    instagramUsername: "premo_studio",
-    facebookUsername: "studiopremo",
-    xhsUserId: "5cbfcb21000000001603e8c7",
+    name: "",
+    instagramUsername: "",
+    facebookUsername: "",
+    xhsUserId: "",
     tiktokUsername: "",
     lemon8Username: "",
-    googlePlaceId: "ChIJh_AxOC9LzDERzk7qrLYEldk",
+    googlePlaceId: "",
+    whatsappNumber: "",
     slogan: "",
   },
   customWebPage: {
     image: null,
     customText: "Booking Us",
-    customLink: "https://premostudio.minibookit.com/",
+    customLink: "",
   },
   wifi: {
-    ssid: "PREMO production",
-    password: "PREMO8888",
+    ssid: "",
+    password: "",
   },
   platformBypass: {
     maxRefreshOption: "3",
@@ -145,6 +156,35 @@ export const DEFAULT_PROFILE_DATA: ProfileData = {
   },
 };
 
+/**
+ * The pre-existing demo business keeps its original example content so the
+ * demo keeps working end-to-end, but this data only ever applies to
+ * DEMO_BUSINESS.id — every other business starts from DEFAULT_PROFILE_DATA.
+ */
+const DEMO_PROFILE_DATA: ProfileData = {
+  ...DEFAULT_PROFILE_DATA,
+  business: {
+    ...DEFAULT_PROFILE_DATA.business,
+    name: DEMO_BUSINESS.name,
+    instagramUsername: "premo_studio",
+    facebookUsername: "studiopremo",
+    xhsUserId: "5cbfcb21000000001603e8c7",
+    googlePlaceId: "ChIJh_AxOC9LzDERzk7qrLYEldk",
+  },
+  customWebPage: {
+    ...DEFAULT_PROFILE_DATA.customWebPage,
+    customLink: "https://premostudio.minibookit.com/",
+  },
+  wifi: {
+    ssid: "PREMO production",
+    password: "PREMO8888",
+  },
+};
+
+function defaultsFor(businessId: string): ProfileData {
+  return businessId === DEMO_BUSINESS.id ? DEMO_PROFILE_DATA : DEFAULT_PROFILE_DATA;
+}
+
 const LEGACY_STORAGE_KEY = "premo-profile-data";
 
 function storageKey(businessId: string) {
@@ -157,7 +197,8 @@ function storageKey(businessId: string) {
  * so data saved before multi-tenant support was added isn't lost.
  */
 export function loadProfileData(businessId: string): ProfileData {
-  if (typeof window === "undefined") return DEFAULT_PROFILE_DATA;
+  const defaults = defaultsFor(businessId);
+  if (typeof window === "undefined") return defaults;
 
   try {
     const raw =
@@ -165,36 +206,36 @@ export function loadProfileData(businessId: string): ProfileData {
       (businessId === DEMO_BUSINESS.id
         ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
         : null);
-    if (!raw) return DEFAULT_PROFILE_DATA;
+    if (!raw) return defaults;
 
     const parsed = JSON.parse(raw) as Partial<ProfileData>;
     return {
-      ...DEFAULT_PROFILE_DATA,
+      ...defaults,
       ...parsed,
-      business: { ...DEFAULT_PROFILE_DATA.business, ...parsed.business },
-      customWebPage: { ...DEFAULT_PROFILE_DATA.customWebPage, ...parsed.customWebPage },
-      wifi: { ...DEFAULT_PROFILE_DATA.wifi, ...parsed.wifi },
+      business: { ...defaults.business, ...parsed.business },
+      customWebPage: { ...defaults.customWebPage, ...parsed.customWebPage },
+      wifi: { ...defaults.wifi, ...parsed.wifi },
       platformBypass: {
-        ...DEFAULT_PROFILE_DATA.platformBypass,
+        ...defaults.platformBypass,
         ...parsed.platformBypass,
         platforms: {
-          ...DEFAULT_PROFILE_DATA.platformBypass.platforms,
+          ...defaults.platformBypass.platforms,
           ...parsed.platformBypass?.platforms,
         },
       },
-      buttonConfig: { ...DEFAULT_PROFILE_DATA.buttonConfig, ...parsed.buttonConfig },
+      buttonConfig: { ...defaults.buttonConfig, ...parsed.buttonConfig },
       languagePreference: {
-        ...DEFAULT_PROFILE_DATA.languagePreference,
+        ...defaults.languagePreference,
         ...parsed.languagePreference,
       },
       platformVisibility: {
-        ...DEFAULT_PROFILE_DATA.platformVisibility,
+        ...defaults.platformVisibility,
         ...parsed.platformVisibility,
       },
-      instructions: { ...DEFAULT_PROFILE_DATA.instructions, ...parsed.instructions },
+      instructions: { ...defaults.instructions, ...parsed.instructions },
     };
   } catch {
-    return DEFAULT_PROFILE_DATA;
+    return defaults;
   }
 }
 

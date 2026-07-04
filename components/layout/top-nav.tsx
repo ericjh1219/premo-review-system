@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,18 +9,28 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getAuthenticatedAdmin, logout } from "@/lib/auth";
 
 type TopNavProps = {
   onMenuClick?: () => void;
 };
 
 export function TopNav({ onMenuClick }: TopNavProps) {
+  const router = useRouter();
+  const [admin] = useState(getAuthenticatedAdmin);
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
       <Button
@@ -53,27 +65,36 @@ export function TopNav({ onMenuClick }: TopNavProps) {
               <Button variant="ghost" className="relative size-9 rounded-full p-0">
                 <Avatar className="size-8">
                   <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
-                    AD
+                    {admin
+                      ? admin.name
+                          .split(" ")
+                          .map((part) => part[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : "AD"}
                   </AvatarFallback>
                 </Avatar>
               </Button>
             }
           />
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">Admin User</span>
-                <span className="text-xs font-normal text-muted-foreground">
-                  admin@premo.io
-                </span>
-              </div>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{admin?.name ?? "Admin User"}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {admin?.email ?? "admin@premo.io"}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Profile</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push("/admin/settings")}>Profile</DropdownMenuItem>
             <DropdownMenuItem>Billing</DropdownMenuItem>
             <DropdownMenuItem>Support</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>Log out</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

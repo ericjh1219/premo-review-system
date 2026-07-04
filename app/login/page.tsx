@@ -1,11 +1,36 @@
-import Link from "next/link";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSession, login } from "@/lib/auth";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (getSession()) {
+      router.replace("/admin");
+    }
+  }, [router]);
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    const result = login(email, password);
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    router.push("/admin");
+  }
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
       <div className="pointer-events-none absolute inset-0">
@@ -32,12 +57,14 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="admin@premo.io"
                   className="h-10"
                 />
@@ -55,11 +82,14 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
                   className="h-10"
                 />
               </div>
-              <Button render={<Link href="/dashboard" />} nativeButton={false} className="h-10 w-full">
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <Button type="submit" className="h-10 w-full">
                 Sign in
               </Button>
             </form>
@@ -67,10 +97,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <button type="button" className="font-medium text-primary hover:underline">
-            Contact sales
-          </button>
+          Admin login: contact@premostudio.com / premo123
         </p>
       </div>
     </div>

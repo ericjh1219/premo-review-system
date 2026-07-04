@@ -115,10 +115,9 @@ export function deleteBusiness(id: string) {
 }
 
 /**
- * Stand-in for authentication. There is no login yet, so the admin app
- * (Dashboard, Posts, Profile) operates on whichever business id is marked
- * "current" in this browser, defaulting to the demo business. Once login
- * ships, this should resolve from the authenticated session instead.
+ * Fallback used by lib/auth.ts's resolveBusinessId() when no session exists
+ * yet (e.g. a page rendering before the auth guard redirects). Defaults to
+ * the demo business.
  */
 export function getCurrentBusinessId(): string {
   if (typeof window === "undefined") return DEMO_BUSINESS.id;

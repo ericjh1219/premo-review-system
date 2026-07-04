@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { CheckCheck, Citrus, LogIn, Wifi } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { CheckCheck, Citrus, LogIn, LogOut, Wifi } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
 import { MdOutlineAdUnits } from "react-icons/md";
 import { SiFacebook, SiInstagram, SiTiktok, SiWechat, SiXiaohongshu } from "react-icons/si";
@@ -13,8 +14,9 @@ import { HelpBadge } from "@/components/link-generator/help-badge";
 import { LuckyDrawReportModal } from "@/components/link-generator/lucky-draw-report-modal";
 import { StatCard } from "@/components/link-generator/stat-card";
 import { TrackingReportModal } from "@/components/link-generator/tracking-report-modal";
-import { getCurrentBusinessId } from "@/lib/business";
+import { getAuthenticatedAdmin, logout, resolveBusinessId } from "@/lib/auth";
 import { getMockLuckyDrawParticipants, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
+import { loadProfileData } from "@/lib/profile-storage";
 import { trackingService } from "@/lib/tracking-service";
 
 const PLATFORM_ICONS: Record<string, ReactNode> = {
@@ -51,7 +53,9 @@ function defaultEnd() {
 }
 
 export default function LinkGeneratorDashboardPage() {
-  const [businessId] = useState(getCurrentBusinessId);
+  const router = useRouter();
+  const [businessId] = useState(resolveBusinessId);
+  const [currentAdmin] = useState(getAuthenticatedAdmin);
   const [startTime, setStartTime] = useState(defaultStart);
   const [endTime, setEndTime] = useState(defaultEnd);
   const [trackingOpen, setTrackingOpen] = useState(false);
@@ -69,6 +73,8 @@ export default function LinkGeneratorDashboardPage() {
       window.removeEventListener("focus", refresh);
     };
   }, []);
+
+  const profile = useMemo(() => loadProfileData(businessId), [businessId, refreshTick]);
 
   const rangeStart = startTime ? new Date(startTime).getTime() : -Infinity;
   const rangeEnd = endTime ? new Date(endTime).getTime() : Infinity;
@@ -104,9 +110,34 @@ export default function LinkGeneratorDashboardPage() {
   const topStat = stats.reduce((top, stat) => (stat.value > top.value ? stat : top), stats[0]);
   const topPlatformLabel = topStat.value > 0 ? topStat.label : "No engagement yet";
 
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
+
   return (
     <div className="min-h-screen bg-[#e9e9ee] pb-28">
       <div className="mx-auto w-full max-w-2xl space-y-4 px-5 pt-6 sm:px-6 sm:pt-8">
+        {currentAdmin && (
+          <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm">
+            <div>
+              <p className="text-sm font-bold text-[#1a1a1a]">{currentAdmin.name}</p>
+              <p className="text-xs text-[#78716c]">
+                {currentAdmin.role}
+                {profile.business.name ? ` · ${profile.business.name}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-[#78716c] hover:bg-[#f1f5f4] hover:text-[#1a1a1a]"
+            >
+              <LogOut className="size-4" />
+              Log out
+            </button>
+          </div>
+        )}
+
         <DateRangeFields
           startTime={startTime}
           endTime={endTime}

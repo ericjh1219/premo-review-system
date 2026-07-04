@@ -8,7 +8,7 @@ import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
 import { ImageUploadField } from "@/components/link-generator/profile/image-upload-field";
 import { ToggleRow } from "@/components/link-generator/profile/toggle-row";
-import { getCurrentBusinessId } from "@/lib/business";
+import { resolveBusinessId } from "@/lib/auth";
 import {
   DEFAULT_PROFILE_DATA,
   PLATFORM_LABELS,
@@ -40,7 +40,7 @@ export default function ProfilePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(loadProfileData(getCurrentBusinessId()));
+    setData(loadProfileData(resolveBusinessId()));
   }, []);
 
   function updateBusiness<K extends keyof ProfileData["business"]>(
@@ -140,7 +140,7 @@ export default function ProfilePage() {
   }
 
   function handleSave() {
-    saveProfileData(getCurrentBusinessId(), data);
+    saveProfileData(resolveBusinessId(), data);
     setToastMessage("Profile saved successfully.");
   }
 
@@ -176,9 +176,8 @@ export default function ProfilePage() {
             onChange={(dataUrl) => setData((prev) => ({ ...prev, profileImage: dataUrl }))}
             className="bg-gradient-to-br from-[#e0777d] to-[#c85a63]"
             placeholder={
-              <div className="flex size-full flex-col items-center justify-center text-white">
-                <span className="text-2xl">🐼</span>
-                <span className="text-[10px] font-black tracking-wide">PREMO</span>
+              <div className="flex size-full items-center justify-center">
+                <ImageIcon className="size-8 text-white/80" />
               </div>
             }
           />
@@ -199,6 +198,15 @@ export default function ProfilePage() {
           <SectionHeading title="Business Information" />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 sm:col-span-2">
+              <label className="text-sm font-medium text-[#57534e]">Business Name</label>
+              <Input
+                value={data.business.name}
+                onChange={(e) => updateBusiness("name", e.target.value)}
+                placeholder="Enter Business Name"
+                className="h-11 rounded-lg border-[#d6d3d1] bg-white"
+              />
+            </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-[#57534e]">Instagram Username</label>
               <Input
@@ -260,6 +268,15 @@ export default function ProfilePage() {
                 value={data.business.googlePlaceId}
                 onChange={(e) => updateBusiness("googlePlaceId", e.target.value)}
                 placeholder="Enter Google Place ID"
+                className="h-11 rounded-lg border-[#d6d3d1] bg-white"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-[#57534e]">WhatsApp Number</label>
+              <Input
+                value={data.business.whatsappNumber}
+                onChange={(e) => updateBusiness("whatsappNumber", e.target.value)}
+                placeholder="Enter WhatsApp Number"
                 className="h-11 rounded-lg border-[#d6d3d1] bg-white"
               />
             </div>

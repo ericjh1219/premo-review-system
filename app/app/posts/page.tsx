@@ -8,7 +8,7 @@ import { PostsPagination } from "@/components/link-generator/posts-pagination";
 import { PostsTable } from "@/components/link-generator/posts-table";
 import { PostsToolbar } from "@/components/link-generator/posts-toolbar";
 import { Toast } from "@/components/link-generator/toast";
-import { getCurrentBusinessId } from "@/lib/business";
+import { resolveBusinessId } from "@/lib/auth";
 import { postBatches, postSocialPlatforms, type NewPostInput, type Post } from "@/lib/mock-data";
 import { loadPosts, savePosts } from "@/lib/post-storage";
 
@@ -40,7 +40,7 @@ function toPost(input: NewPostInput, existingPosts: Post[]): Post {
 }
 
 export default function PostsPage() {
-  const [businessId] = useState(getCurrentBusinessId);
+  const [businessId] = useState(resolveBusinessId);
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoaded, setPostsLoaded] = useState(false);
   const [search, setSearch] = useState("");

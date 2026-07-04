@@ -33,7 +33,8 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
             const isActive =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+              pathname === item.href ||
+              (item.href !== "/admin" && pathname.startsWith(`${item.href}/`));
             const Icon = item.icon;
 
             return (
