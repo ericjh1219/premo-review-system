@@ -40,6 +40,7 @@ import {
   updateBusiness,
   type Business,
 } from "@/lib/business";
+import { startImpersonation } from "@/lib/auth";
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -173,6 +174,11 @@ export default function BusinessesPage() {
     setDeleteTarget(null);
   }
 
+  function handleLoginAsBusiness(business: Business) {
+    startImpersonation(business.id);
+    router.push("/app");
+  }
+
   return (
     <>
       <PageHeader
@@ -253,6 +259,9 @@ export default function BusinessesPage() {
                               onClick={() => router.push(`/admin/businesses/${business.id}/users`)}
                             >
                               Manage Users
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleLoginAsBusiness(business)}>
+                              Login As Business
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(business)}>
                               {business.status === "active" ? "Deactivate" : "Activate"}

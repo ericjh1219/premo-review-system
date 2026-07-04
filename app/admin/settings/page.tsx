@@ -27,7 +27,7 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
-  function handleChangePassword() {
+  async function handleChangePassword() {
     setPasswordError(null);
     setPasswordSuccess(null);
 
@@ -40,7 +40,7 @@ export default function SettingsPage() {
       return;
     }
 
-    const result = changePassword(admin.id, currentPassword, newPassword);
+    const result = await changePassword(admin.id, currentPassword, newPassword);
     if (!result.success) {
       setPasswordError(result.error ?? "Unable to change password.");
       return;

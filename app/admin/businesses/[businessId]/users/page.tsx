@@ -45,6 +45,7 @@ import {
   deleteUser,
   isLastOwner,
   listUsers,
+  resetUserPassword,
   setUserStatus,
   updateUser,
   type BusinessUser,
@@ -92,6 +93,10 @@ export default function BusinessUsersPage({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BusinessUser | null>(null);
+  const [resetTarget, setResetTarget] = useState<BusinessUser | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     setBusiness(getBusinessById(businessId));
@@ -180,6 +185,35 @@ export default function BusinessUsersPage({
       setUsers((current) => current.filter((user) => user.id !== deleteTarget.id));
     }
     setDeleteTarget(null);
+  }
+
+  function openResetPassword(user: BusinessUser) {
+    setResetTarget(user);
+    setNewPassword("");
+    setResetError(null);
+    setResetSuccess(null);
+  }
+
+  function handleResetOpenChange(open: boolean) {
+    if (!open) {
+      setResetTarget(null);
+      setNewPassword("");
+      setResetError(null);
+      setResetSuccess(null);
+    }
+  }
+
+  async function handleConfirmReset() {
+    if (!resetTarget) return;
+    setResetError(null);
+
+    const { success, error } = await resetUserPassword(businessId, resetTarget.id, newPassword);
+    if (!success) {
+      setResetError(error ?? "Unable to reset password.");
+      return;
+    }
+    setNewPassword("");
+    setResetSuccess("Password reset successfully.");
   }
 
   return (
@@ -272,6 +306,9 @@ export default function BusinessUsersPage({
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem onClick={() => openEditForm(user)}>
                                 Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openResetPassword(user)}>
+                                Reset Password
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleToggleStatus(user)}>
                                 {user.status === "active" ? "Deactivate" : "Activate"}
@@ -380,6 +417,45 @@ export default function BusinessUsersPage({
             <Button variant="destructive" onClick={handleConfirmDelete}>
               Delete User
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(resetTarget)} onOpenChange={handleResetOpenChange}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Reset password</DialogTitle>
+            <DialogDescription>
+              Set a new password for{" "}
+              <span className="font-medium text-foreground">{resetTarget?.name}</span>. They will
+              need to use this new password to sign in — the current password cannot be recovered
+              or displayed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="reset-password">New password</Label>
+              <Input
+                id="reset-password"
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Set a new password"
+              />
+            </div>
+
+            {resetError && <p className="text-sm text-destructive">{resetError}</p>}
+            {resetSuccess && (
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">{resetSuccess}</p>
+            )}
+          </div>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => handleResetOpenChange(false)}>
+              Close
+            </Button>
+            <Button onClick={handleConfirmReset}>Reset Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

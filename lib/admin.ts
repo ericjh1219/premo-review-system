@@ -1,3 +1,5 @@
+import { hashPassword, verifyPassword } from "@/lib/password";
+
 export type AdminRole = "Admin" | "Staff";
 export type AdminStatus = "active" | "inactive";
 
@@ -5,6 +7,7 @@ export type AdminUser = {
   id: string;
   name: string;
   email: string;
+  /** Always a "salt:hash" string — never the plaintext password. */
   password: string;
   role: AdminRole;
   status: AdminStatus;
@@ -17,13 +20,14 @@ const STORAGE_KEY = "premo-admins";
 /**
  * The one internal PREMO account this system ships with. There is no signup
  * flow, so this is the account used to log into the dashboard until more
- * admins are created.
+ * admins are created. Password is "premo123", pre-hashed so no plaintext
+ * password ever appears in this codebase.
  */
 const DEFAULT_ADMIN: AdminUser = {
   id: "admin-premo-default",
   name: "Premo Admin",
   email: "contact@premostudio.com",
-  password: "premo123",
+  password: "demo-seed-salt-admin:36c0773433130c17aec3de67c72b647ab715b0bfa0705d61ba39061668d4fd54",
   role: "Admin",
   status: "active",
   lastLoginAt: null,
@@ -62,6 +66,11 @@ export function findAdminByEmail(email: string): AdminUser | undefined {
   return readAdmins().find((admin) => admin.email.trim().toLowerCase() === normalized);
 }
 
+/** Verifies a plaintext password against this admin's stored hash. */
+export async function verifyAdminPassword(admin: AdminUser, password: string): Promise<boolean> {
+  return verifyPassword(password, admin.password);
+}
+
 function countAdminsWithRole(admins: AdminUser[], excludingId?: string) {
   return admins.filter((admin) => admin.role === "Admin" && admin.id !== excludingId).length;
 }
@@ -73,17 +82,17 @@ export function isLastAdmin(id: string): boolean {
   return Boolean(admin) && admin!.role === "Admin" && countAdminsWithRole(admins, id) === 0;
 }
 
-export function createAdmin(input: {
+export async function createAdmin(input: {
   name: string;
   email: string;
   password: string;
   role: AdminRole;
-}): AdminUser {
+}): Promise<AdminUser> {
   const admin: AdminUser = {
     id: `admin-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     name: input.name,
     email: input.email,
-    password: input.password,
+    password: await hashPassword(input.password),
     role: input.role,
     status: "active",
     lastLoginAt: null,
@@ -94,10 +103,10 @@ export function createAdmin(input: {
   return admin;
 }
 
-export function updateAdmin(
+export async function updateAdmin(
   id: string,
-  updates: Partial<Pick<AdminUser, "name" | "email" | "role" | "status" | "password">>
-): { admin?: AdminUser; error?: string } {
+  updates: Partial<Pick<AdminUser, "name" | "email" | "role" | "status">> & { password?: string }
+): Promise<{ admin?: AdminUser; error?: string }> {
   const admins = readAdmins();
   const target = admins.find((admin) => admin.id === id);
   if (!target) return { error: "Admin account not found." };
@@ -106,7 +115,12 @@ export function updateAdmin(
     return { error: "The platform must have at least one Admin." };
   }
 
-  const updated: AdminUser = { ...target, ...updates };
+  const { password, ...rest } = updates;
+  const updated: AdminUser = {
+    ...target,
+    ...rest,
+    ...(password ? { password: await hashPassword(password) } : {}),
+  };
   writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
   return { admin: updated };
 }
@@ -115,7 +129,13 @@ export function setAdminStatus(
   id: string,
   status: AdminStatus
 ): { admin?: AdminUser; error?: string } {
-  return updateAdmin(id, { status });
+  const admins = readAdmins();
+  const target = admins.find((admin) => admin.id === id);
+  if (!target) return { error: "Admin account not found." };
+
+  const updated: AdminUser = { ...target, status };
+  writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
+  return { admin: updated };
 }
 
 export function deleteAdmin(id: string): { success: boolean; error?: string } {
@@ -136,24 +156,25 @@ export function recordAdminLogin(id: string): void {
   );
 }
 
-export function changePassword(
+export async function changePassword(
   id: string,
   currentPassword: string,
   newPassword: string
-): { success: boolean; error?: string } {
+): Promise<{ success: boolean; error?: string }> {
   const admins = readAdmins();
   const admin = admins.find((existing) => existing.id === id);
   if (!admin) return { success: false, error: "Admin account not found." };
 
-  if (admin.password !== currentPassword) {
+  if (!(await verifyPassword(currentPassword, admin.password))) {
     return { success: false, error: "Current password is incorrect." };
   }
   if (!newPassword || newPassword.length < 6) {
     return { success: false, error: "New password must be at least 6 characters." };
   }
 
+  const hashed = await hashPassword(newPassword);
   writeAdmins(
-    admins.map((existing) => (existing.id === id ? { ...existing, password: newPassword } : existing))
+    admins.map((existing) => (existing.id === id ? { ...existing, password: hashed } : existing))
   );
   return { success: true };
 }

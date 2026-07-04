@@ -121,7 +121,7 @@ export default function AdminUsersPage() {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     const name = form.name.trim();
     const email = form.email.trim();
     const password = form.password.trim();
@@ -136,7 +136,7 @@ export default function AdminUsersPage() {
     }
 
     if (editingId) {
-      const { admin, error } = updateAdmin(editingId, {
+      const { admin, error } = await updateAdmin(editingId, {
         name,
         email,
         role: form.role,
@@ -158,7 +158,7 @@ export default function AdminUsersPage() {
       return;
     }
 
-    const created = createAdmin({ name, email, password, role: form.role });
+    const created = await createAdmin({ name, email, password, role: form.role });
     setAdmins((current) => [...current, created]);
     setFormOpen(false);
   }

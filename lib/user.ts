@@ -1,4 +1,5 @@
 import { DEMO_BUSINESS } from "@/lib/business";
+import { hashPassword } from "@/lib/password";
 
 export type UserRole = "Owner" | "Admin" | "Staff";
 export type UserStatus = "active" | "inactive";
@@ -12,6 +13,12 @@ export type BusinessUser = {
   status: UserStatus;
   lastLoginAt: string | null;
   createdAt: string;
+  /**
+   * Always a "salt:hash" string, or null if the Super Admin has never set
+   * one for this business contact via Reset Password — never the plaintext
+   * password.
+   */
+  password: string | null;
 };
 
 function storageKey(businessId: string) {
@@ -31,6 +38,7 @@ const DEMO_OWNER: BusinessUser = {
   status: "active",
   lastLoginAt: null,
   createdAt: DEMO_BUSINESS.createdAt,
+  password: null,
 };
 
 function seedFor(businessId: string): BusinessUser[] {
@@ -42,7 +50,10 @@ function readUsers(businessId: string): BusinessUser[] {
 
   try {
     const raw = window.localStorage.getItem(storageKey(businessId));
-    if (raw) return JSON.parse(raw) as BusinessUser[];
+    if (raw) {
+      const parsed = JSON.parse(raw) as BusinessUser[];
+      return parsed.map((user) => ({ ...user, password: user.password ?? null }));
+    }
 
     const seed = seedFor(businessId);
     writeUsers(businessId, seed);
@@ -89,10 +100,37 @@ export function createUser(
     status: "active",
     lastLoginAt: null,
     createdAt: new Date().toISOString(),
+    password: null,
   };
 
   writeUsers(businessId, [...readUsers(businessId), user]);
   return user;
+}
+
+/**
+ * System Owner action: sets (or replaces) this business contact's password.
+ * The password is hashed before storage and is never readable again — there
+ * is no "view password" capability anywhere in this app.
+ */
+export async function resetUserPassword(
+  businessId: string,
+  userId: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: "New password must be at least 6 characters." };
+  }
+
+  const users = readUsers(businessId);
+  const target = users.find((user) => user.id === userId);
+  if (!target) return { success: false, error: "User not found." };
+
+  const hashed = await hashPassword(newPassword);
+  writeUsers(
+    businessId,
+    users.map((user) => (user.id === userId ? { ...user, password: hashed } : user))
+  );
+  return { success: true };
 }
 
 export function updateUser(
