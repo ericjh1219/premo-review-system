@@ -39,8 +39,8 @@ export default function CustomerSharePage({
 }) {
   const { business: businessId } = use(params);
 
-  const [profile, setProfile] = useState(() => loadProfileData());
-  const [luckyDraw] = useState(() => loadLuckyDrawSettings());
+  const [profile, setProfile] = useState(() => loadProfileData(businessId));
+  const [luckyDraw] = useState(() => loadLuckyDrawSettings(businessId));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [wifiOpen, setWifiOpen] = useState(false);
   const [templateState, setTemplateState] = useState<{
@@ -51,7 +51,7 @@ export default function CustomerSharePage({
   }>({ open: false, platform: "", templates: [], link: "" });
 
   useEffect(() => {
-    setProfile(loadProfileData());
+    setProfile(loadProfileData(businessId));
     trackingService.recordEvent(businessId, "Page Entry", "View");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

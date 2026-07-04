@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BatchActionPanel } from "@/components/link-generator/batch-action-panel";
 import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { CreatePostModal } from "@/components/link-generator/create-post-modal";
@@ -8,13 +8,9 @@ import { PostsPagination } from "@/components/link-generator/posts-pagination";
 import { PostsTable } from "@/components/link-generator/posts-table";
 import { PostsToolbar } from "@/components/link-generator/posts-toolbar";
 import { Toast } from "@/components/link-generator/toast";
-import {
-  postBatches,
-  posts as initialPosts,
-  postSocialPlatforms,
-  type NewPostInput,
-  type Post,
-} from "@/lib/mock-data";
+import { getCurrentBusinessId } from "@/lib/business";
+import { postBatches, postSocialPlatforms, type NewPostInput, type Post } from "@/lib/mock-data";
+import { loadPosts, savePosts } from "@/lib/post-storage";
 
 const PAGE_SIZE = 6;
 
@@ -44,7 +40,9 @@ function toPost(input: NewPostInput, existingPosts: Post[]): Post {
 }
 
 export default function PostsPage() {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [businessId] = useState(getCurrentBusinessId);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoaded, setPostsLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [batch, setBatch] = useState("all");
   const [socialPlatform, setSocialPlatform] = useState("all");
@@ -54,6 +52,16 @@ export default function PostsPage() {
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setPosts(loadPosts(businessId));
+    setPostsLoaded(true);
+  }, [businessId]);
+
+  useEffect(() => {
+    if (!postsLoaded) return;
+    savePosts(businessId, posts);
+  }, [businessId, postsLoaded, posts]);
 
   const filteredPosts = useMemo(() => {
     const query = search.trim().toLowerCase();

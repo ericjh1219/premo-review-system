@@ -1,3 +1,5 @@
+import { DEMO_BUSINESS } from "@/lib/business";
+
 export type LinkGeneratorData = {
   staticPageLink: string;
   xhsShareLink: string;
@@ -8,13 +10,21 @@ export const DEFAULT_LINK_GENERATOR_DATA: LinkGeneratorData = {
   xhsShareLink: "https://jshare.link/share/Premo/1uXU",
 };
 
-const STORAGE_KEY = "premo-link-generator-data";
+const LEGACY_STORAGE_KEY = "premo-link-generator-data";
 
-export function loadLinkGeneratorData(): LinkGeneratorData {
+function storageKey(businessId: string) {
+  return `premo-link-generator-data:${businessId}`;
+}
+
+export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
   if (typeof window === "undefined") return DEFAULT_LINK_GENERATOR_DATA;
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(storageKey(businessId)) ??
+      (businessId === DEMO_BUSINESS.id
+        ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
+        : null);
     if (!raw) return DEFAULT_LINK_GENERATOR_DATA;
 
     const parsed = JSON.parse(raw) as Partial<LinkGeneratorData>;
@@ -24,7 +34,7 @@ export function loadLinkGeneratorData(): LinkGeneratorData {
   }
 }
 
-export function saveLinkGeneratorData(data: LinkGeneratorData) {
+export function saveLinkGeneratorData(businessId: string, data: LinkGeneratorData) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.localStorage.setItem(storageKey(businessId), JSON.stringify(data));
 }

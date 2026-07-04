@@ -38,15 +38,6 @@ export const TRACKED_PLATFORMS = [
 
 export type TrackedPlatform = (typeof TRACKED_PLATFORMS)[number];
 
-/**
- * There is currently no multi-business admin switcher, so every reader
- * (the Dashboard) and every writer (the Customer Share Page's default
- * example link) agree on this single business id. Passing a different
- * id anywhere already works end-to-end — this constant only exists so
- * the single-tenant demo has one consistent value.
- */
-export const DEFAULT_BUSINESS_ID = "premo-studio";
-
 const STORAGE_PREFIX = "premo-tracking";
 const VISITOR_ID_KEY = "premo-visitor-id";
 const SESSION_ID_KEY = "premo-session-id";

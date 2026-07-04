@@ -1,3 +1,5 @@
+import { DEMO_BUSINESS } from "@/lib/business";
+
 export type PlatformKey =
   | "rednote"
   | "tiktok"
@@ -143,13 +145,26 @@ export const DEFAULT_PROFILE_DATA: ProfileData = {
   },
 };
 
-const STORAGE_KEY = "premo-profile-data";
+const LEGACY_STORAGE_KEY = "premo-profile-data";
 
-export function loadProfileData(): ProfileData {
+function storageKey(businessId: string) {
+  return `premo-profile-data:${businessId}`;
+}
+
+/**
+ * Reads a business's profile, scoped by business id. For the pre-existing
+ * demo business this also falls back to the old, non-namespaced storage key
+ * so data saved before multi-tenant support was added isn't lost.
+ */
+export function loadProfileData(businessId: string): ProfileData {
   if (typeof window === "undefined") return DEFAULT_PROFILE_DATA;
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(storageKey(businessId)) ??
+      (businessId === DEMO_BUSINESS.id
+        ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
+        : null);
     if (!raw) return DEFAULT_PROFILE_DATA;
 
     const parsed = JSON.parse(raw) as Partial<ProfileData>;
@@ -183,7 +198,7 @@ export function loadProfileData(): ProfileData {
   }
 }
 
-export function saveProfileData(data: ProfileData) {
+export function saveProfileData(businessId: string, data: ProfileData) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.localStorage.setItem(storageKey(businessId), JSON.stringify(data));
 }

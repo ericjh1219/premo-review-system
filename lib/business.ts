@@ -1,0 +1,131 @@
+export type BusinessStatus = "active" | "inactive";
+
+export type Business = {
+  id: string;
+  name: string;
+  contactName: string;
+  email: string;
+  status: BusinessStatus;
+  createdAt: string;
+};
+
+const REGISTRY_KEY = "premo-businesses";
+const CURRENT_BUSINESS_KEY = "premo-current-business-id";
+
+/**
+ * The single pre-existing business this project was built around. Every
+ * business-scoped storage module falls back to this id so the current demo
+ * keeps working exactly as before while the rest of the app becomes
+ * multi-tenant.
+ */
+export const DEMO_BUSINESS: Business = {
+  id: "premo-studio",
+  name: "PREMO Studio",
+  contactName: "Premo Admin",
+  email: "contact@premostudio.com",
+  status: "active",
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+function normalize(business: Partial<Business> & { id: string; name: string }): Business {
+  return {
+    id: business.id,
+    name: business.name,
+    contactName: business.contactName ?? "",
+    email: business.email ?? "",
+    status: business.status ?? "active",
+    createdAt: business.createdAt ?? new Date().toISOString(),
+  };
+}
+
+function readRegistry(): Business[] {
+  if (typeof window === "undefined") return [DEMO_BUSINESS];
+
+  try {
+    const raw = window.localStorage.getItem(REGISTRY_KEY);
+    if (!raw) return [DEMO_BUSINESS];
+
+    const parsed = JSON.parse(raw) as Business[];
+    return parsed.length > 0 ? parsed.map(normalize) : [DEMO_BUSINESS];
+  } catch {
+    return [DEMO_BUSINESS];
+  }
+}
+
+function writeRegistry(businesses: Business[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(businesses));
+}
+
+export function listBusinesses(): Business[] {
+  return readRegistry();
+}
+
+export function getBusinessById(id: string): Business | undefined {
+  return readRegistry().find((business) => business.id === id);
+}
+
+export function createBusiness(input: {
+  id: string;
+  name: string;
+  contactName: string;
+  email: string;
+}): Business {
+  const registry = readRegistry();
+  if (registry.some((existing) => existing.id === input.id)) {
+    throw new Error(`A business with id "${input.id}" already exists.`);
+  }
+
+  const business: Business = {
+    id: input.id,
+    name: input.name,
+    contactName: input.contactName,
+    email: input.email,
+    status: "active",
+    createdAt: new Date().toISOString(),
+  };
+
+  writeRegistry([...registry, business]);
+  return business;
+}
+
+export function updateBusiness(
+  id: string,
+  updates: Partial<Pick<Business, "name" | "contactName" | "email" | "status">>
+): Business | undefined {
+  const registry = readRegistry();
+  let updated: Business | undefined;
+
+  const next = registry.map((business) => {
+    if (business.id !== id) return business;
+    updated = { ...business, ...updates };
+    return updated;
+  });
+
+  if (updated) writeRegistry(next);
+  return updated;
+}
+
+export function setBusinessStatus(id: string, status: BusinessStatus): Business | undefined {
+  return updateBusiness(id, { status });
+}
+
+export function deleteBusiness(id: string) {
+  writeRegistry(readRegistry().filter((business) => business.id !== id));
+}
+
+/**
+ * Stand-in for authentication. There is no login yet, so the admin app
+ * (Dashboard, Posts, Profile) operates on whichever business id is marked
+ * "current" in this browser, defaulting to the demo business. Once login
+ * ships, this should resolve from the authenticated session instead.
+ */
+export function getCurrentBusinessId(): string {
+  if (typeof window === "undefined") return DEMO_BUSINESS.id;
+  return window.localStorage.getItem(CURRENT_BUSINESS_KEY) ?? DEMO_BUSINESS.id;
+}
+
+export function setCurrentBusinessId(id: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(CURRENT_BUSINESS_KEY, id);
+}

@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
 import { ImageUploadField } from "@/components/link-generator/profile/image-upload-field";
 import { ToggleRow } from "@/components/link-generator/profile/toggle-row";
+import { getCurrentBusinessId } from "@/lib/business";
 import {
   DEFAULT_PROFILE_DATA,
   PLATFORM_LABELS,
@@ -39,7 +40,7 @@ export default function ProfilePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(loadProfileData());
+    setData(loadProfileData(getCurrentBusinessId()));
   }, []);
 
   function updateBusiness<K extends keyof ProfileData["business"]>(
@@ -139,7 +140,7 @@ export default function ProfilePage() {
   }
 
   function handleSave() {
-    saveProfileData(data);
+    saveProfileData(getCurrentBusinessId(), data);
     setToastMessage("Profile saved successfully.");
   }
 

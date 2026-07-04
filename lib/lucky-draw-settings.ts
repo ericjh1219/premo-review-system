@@ -1,9 +1,15 @@
+import { DEMO_BUSINESS } from "@/lib/business";
+
 export type LuckyDrawSettings = {
   enabled: boolean;
   prizeDescription: string;
 };
 
-const STORAGE_KEY = "premo-lucky-draw-settings";
+const LEGACY_STORAGE_KEY = "premo-lucky-draw-settings";
+
+function storageKey(businessId: string) {
+  return `premo-lucky-draw-settings:${businessId}`;
+}
 
 /**
  * There is currently no admin UI for toggling Lucky Draw (the Profile page's
@@ -16,11 +22,15 @@ export const DEFAULT_LUCKY_DRAW_SETTINGS: LuckyDrawSettings = {
   prizeDescription: "Win a free photo session!",
 };
 
-export function loadLuckyDrawSettings(): LuckyDrawSettings {
+export function loadLuckyDrawSettings(businessId: string): LuckyDrawSettings {
   if (typeof window === "undefined") return DEFAULT_LUCKY_DRAW_SETTINGS;
 
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw =
+      window.localStorage.getItem(storageKey(businessId)) ??
+      (businessId === DEMO_BUSINESS.id
+        ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
+        : null);
     if (!raw) return DEFAULT_LUCKY_DRAW_SETTINGS;
     return { ...DEFAULT_LUCKY_DRAW_SETTINGS, ...(JSON.parse(raw) as Partial<LuckyDrawSettings>) };
   } catch {

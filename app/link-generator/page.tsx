@@ -6,6 +6,7 @@ import { LinkRow } from "@/components/link-generator/link-row";
 import { QueryParametersForm } from "@/components/link-generator/query-parameters-form";
 import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
+import { getCurrentBusinessId } from "@/lib/business";
 import {
   DEFAULT_LINK_GENERATOR_DATA,
   loadLinkGeneratorData,
@@ -19,7 +20,7 @@ export default function LinkGeneratorPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setLinks(loadLinkGeneratorData());
+    setLinks(loadLinkGeneratorData(getCurrentBusinessId()));
   }, []);
 
   function handleChange(key: keyof LinkGeneratorData, value: string) {
@@ -32,8 +33,9 @@ export default function LinkGeneratorPage() {
 
       if (nextLocked) {
         setLinks((currentLinks) => {
-          const persisted = loadLinkGeneratorData();
-          saveLinkGeneratorData({ ...persisted, [key]: currentLinks[key] });
+          const businessId = getCurrentBusinessId();
+          const persisted = loadLinkGeneratorData(businessId);
+          saveLinkGeneratorData(businessId, { ...persisted, [key]: currentLinks[key] });
           return currentLinks;
         });
       }

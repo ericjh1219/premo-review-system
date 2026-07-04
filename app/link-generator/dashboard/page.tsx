@@ -13,8 +13,9 @@ import { HelpBadge } from "@/components/link-generator/help-badge";
 import { LuckyDrawReportModal } from "@/components/link-generator/lucky-draw-report-modal";
 import { StatCard } from "@/components/link-generator/stat-card";
 import { TrackingReportModal } from "@/components/link-generator/tracking-report-modal";
-import { MOCK_LUCKY_DRAW_PARTICIPANTS, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
-import { DEFAULT_BUSINESS_ID, trackingService } from "@/lib/tracking-service";
+import { getCurrentBusinessId } from "@/lib/business";
+import { getMockLuckyDrawParticipants, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
+import { trackingService } from "@/lib/tracking-service";
 
 const PLATFORM_ICONS: Record<string, ReactNode> = {
   "WiFi Connect": <Wifi className="size-[18px] text-[#64748b]" />,
@@ -50,6 +51,7 @@ function defaultEnd() {
 }
 
 export default function LinkGeneratorDashboardPage() {
+  const [businessId] = useState(getCurrentBusinessId);
   const [startTime, setStartTime] = useState(defaultStart);
   const [endTime, setEndTime] = useState(defaultEnd);
   const [trackingOpen, setTrackingOpen] = useState(false);
@@ -72,16 +74,16 @@ export default function LinkGeneratorDashboardPage() {
   const rangeEnd = endTime ? new Date(endTime).getTime() : Infinity;
 
   const filteredEvents = useMemo(() => {
-    return trackingService.getEventsInRange(DEFAULT_BUSINESS_ID, rangeStart, rangeEnd);
+    return trackingService.getEventsInRange(businessId, rangeStart, rangeEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeStart, rangeEnd, refreshTick]);
+  }, [businessId, rangeStart, rangeEnd, refreshTick]);
 
   const filteredParticipants = useMemo(() => {
-    return MOCK_LUCKY_DRAW_PARTICIPANTS.filter((participant) => {
+    return getMockLuckyDrawParticipants(businessId).filter((participant) => {
       const time = new Date(participant.submittedAt).getTime();
       return time >= rangeStart && time <= rangeEnd;
     });
-  }, [rangeStart, rangeEnd]);
+  }, [businessId, rangeStart, rangeEnd]);
 
   const pageEntryCount = useMemo(
     () => filteredEvents.filter((event) => event.platform === "Page Entry").length,

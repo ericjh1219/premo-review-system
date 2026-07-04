@@ -1,3 +1,5 @@
+import { DEMO_BUSINESS } from "@/lib/business";
+
 export type LuckyDrawStatus = "Pending" | "Winner" | "Not Selected";
 
 export type LuckyDrawParticipant = {
@@ -65,11 +67,25 @@ function mulberry32(seed: number) {
   };
 }
 
+function hashSeed(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (Math.imul(31, hash) + value.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
 const NOW = new Date("2026-07-03T12:00:00Z").getTime();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function generateLuckyDrawParticipants(): LuckyDrawParticipant[] {
-  const random = mulberry32(42);
+/**
+ * Generates deterministic mock Lucky Draw participants, seeded per business
+ * so every business gets its own distinct (but stable) mock report instead
+ * of all businesses sharing the demo business's data.
+ */
+function generateLuckyDrawParticipants(businessId: string): LuckyDrawParticipant[] {
+  const seed = businessId === DEMO_BUSINESS.id ? 42 : hashSeed(businessId);
+  const random = mulberry32(seed);
   const participants: LuckyDrawParticipant[] = [];
   const statuses: LuckyDrawStatus[] = ["Pending", "Winner", "Not Selected"];
 
@@ -97,4 +113,13 @@ function generateLuckyDrawParticipants(): LuckyDrawParticipant[] {
   );
 }
 
-export const MOCK_LUCKY_DRAW_PARTICIPANTS: LuckyDrawParticipant[] = generateLuckyDrawParticipants();
+const participantsCache = new Map<string, LuckyDrawParticipant[]>();
+
+export function getMockLuckyDrawParticipants(businessId: string): LuckyDrawParticipant[] {
+  const cached = participantsCache.get(businessId);
+  if (cached) return cached;
+
+  const participants = generateLuckyDrawParticipants(businessId);
+  participantsCache.set(businessId, participants);
+  return participants;
+}
