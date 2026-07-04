@@ -2,42 +2,51 @@
 
 import { useEffect, useState } from "react";
 import { ShieldAlert } from "lucide-react";
-import { getBusinessById, getEffectiveSubscriptionStatus } from "@/lib/business";
+import {
+  getBusinessById,
+  getEffectiveSubscriptionStatus,
+  type SubscriptionStatus,
+} from "@/lib/business";
 import { isImpersonating, resolveBusinessId } from "@/lib/auth";
+import { SUBSCRIPTION_EXPIRED_MESSAGE } from "@/lib/subscription";
 import { Card, CardContent } from "@/components/ui/card";
 
 /**
- * Blocks /app access once a business's subscription is expired or suspended.
- * Always bypassed while a Super Admin is impersonating the business (see
- * Login As Business), since that's the whole point of impersonation — being
- * able to inspect a lapsed account regardless of its subscription state.
+ * Fully blocks /app access only when a business's subscription is
+ * suspended. An expired subscription instead keeps read-only access to the
+ * Dashboard, Profile, existing QR Codes, and Statistics — individual create
+ * actions (Posts, Google Review Categories, Branches, Lucky Draw, AI) gate
+ * themselves via lib/subscription.ts's canPerformCreateAction. Always
+ * bypassed while a Super Admin is impersonating the business (see Login As
+ * Business), since that's the whole point of impersonation — being able to
+ * inspect any account regardless of its subscription state.
  */
 export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
-  const [blocked, setBlocked] = useState(false);
+  const [bypassed, setBypassed] = useState(false);
+  const [status, setStatus] = useState<SubscriptionStatus | null>(null);
 
   useEffect(() => {
     if (isImpersonating()) {
-      setBlocked(false);
+      setBypassed(true);
       setChecked(true);
       return;
     }
 
     const business = getBusinessById(resolveBusinessId());
     if (!business) {
-      setBlocked(false);
+      setBypassed(true);
       setChecked(true);
       return;
     }
 
-    const status = getEffectiveSubscriptionStatus(business);
-    setBlocked(status === "expired" || status === "suspended");
+    setStatus(getEffectiveSubscriptionStatus(business));
     setChecked(true);
   }, []);
 
   if (!checked) return null;
 
-  if (blocked) {
+  if (!bypassed && status === "suspended") {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="max-w-md border-border/60 bg-card/80 shadow-sm backdrop-blur-sm">
@@ -47,8 +56,8 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
             </div>
             <p className="font-medium">Access Restricted</p>
             <p className="max-w-sm text-sm text-muted-foreground">
-              This business's subscription has expired or been suspended. Please contact PREMO
-              support to restore access.
+              This business's subscription has been suspended. Please contact PREMO support to
+              restore access.
             </p>
           </CardContent>
         </Card>
@@ -56,5 +65,14 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {!bypassed && status === "expired" && (
+        <div className="bg-destructive px-4 py-2.5 text-center text-sm font-medium text-destructive-foreground">
+          {SUBSCRIPTION_EXPIRED_MESSAGE}
+        </div>
+      )}
+      {children}
+    </>
+  );
 }

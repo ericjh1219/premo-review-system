@@ -346,6 +346,8 @@ export type Post = {
   videoLink: string;
   batch: string;
   socialPlatform: string;
+  /** Only meaningful when socialPlatform is "Google Review" — groups this post under a Google Review Category. */
+  categoryId: string | null;
   isUsed: boolean;
   status: PostStatus;
   createdAt: string;
@@ -361,6 +363,7 @@ export type NewPostInput = {
   imageLinks?: string;
   videoLink?: string;
   status?: PostStatus;
+  categoryId?: string | null;
 };
 
 export const postBatches = ["Batch #1", "Batch #2", "Batch #3"];

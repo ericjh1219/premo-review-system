@@ -1,13 +1,23 @@
+import { getSubscriptionPlan, type SubscriptionPlanId } from "@/lib/subscription-plans";
+
 export type BusinessStatus = "active" | "inactive";
 
-export type SubscriptionPlan = "Free" | "Starter" | "Pro" | "Enterprise";
-export type SubscriptionStatus = "active" | "expired" | "suspended";
+export type SubscriptionPlan = SubscriptionPlanId;
+export type SubscriptionStatus = "active" | "expired" | "suspended" | "trial";
 
 export type Subscription = {
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlanId;
+  status: SubscriptionStatus;
   startDate: string;
   expiryDate: string;
-  status: SubscriptionStatus;
+  /** Generic AI credit pool — every future AI feature (reviews, captions, replies, translations, etc.) draws from this same balance. */
+  monthlyAiCredits: number;
+  remainingAiCredits: number;
+  branchLimit: number;
+  luckyDrawEnabled: boolean;
+  autoRenew: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Business = {
@@ -24,14 +34,55 @@ const REGISTRY_KEY = "premo-businesses";
 const CURRENT_BUSINESS_KEY = "premo-current-business-id";
 
 function defaultSubscription(): Subscription {
+  const plan = getSubscriptionPlan("basic");
   const start = new Date();
   const expiry = new Date(start);
   expiry.setDate(expiry.getDate() + 30);
+  const now = start.toISOString();
+
   return {
-    plan: "Free",
-    startDate: start.toISOString(),
+    plan: plan.id,
+    status: "trial",
+    startDate: now,
     expiryDate: expiry.toISOString(),
-    status: "active",
+    monthlyAiCredits: plan.monthlyAiCredits,
+    remainingAiCredits: plan.monthlyAiCredits,
+    branchLimit: plan.branchLimit,
+    luckyDrawEnabled: plan.luckyDrawEnabled,
+    autoRenew: false,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Maps legacy plan values (from before the Basic/Pro/Enterprise catalog existed) onto the current plan ids. */
+function normalizePlanId(plan: unknown): SubscriptionPlanId {
+  if (plan === "basic" || plan === "pro" || plan === "enterprise") return plan;
+  if (plan === "Free" || plan === "Starter") return "basic";
+  if (plan === "Pro") return "pro";
+  if (plan === "Enterprise") return "enterprise";
+  return "basic";
+}
+
+function normalizeSubscription(subscription: Partial<Subscription> | undefined): Subscription {
+  const fallback = defaultSubscription();
+  if (!subscription) return fallback;
+
+  const plan = normalizePlanId(subscription.plan);
+  const planDefaults = getSubscriptionPlan(plan);
+
+  return {
+    plan,
+    status: subscription.status ?? fallback.status,
+    startDate: subscription.startDate ?? fallback.startDate,
+    expiryDate: subscription.expiryDate ?? fallback.expiryDate,
+    monthlyAiCredits: subscription.monthlyAiCredits ?? planDefaults.monthlyAiCredits,
+    remainingAiCredits: subscription.remainingAiCredits ?? planDefaults.monthlyAiCredits,
+    branchLimit: subscription.branchLimit ?? planDefaults.branchLimit,
+    luckyDrawEnabled: subscription.luckyDrawEnabled ?? planDefaults.luckyDrawEnabled,
+    autoRenew: subscription.autoRenew ?? false,
+    createdAt: subscription.createdAt ?? fallback.createdAt,
+    updatedAt: subscription.updatedAt ?? fallback.createdAt,
   };
 }
 
@@ -49,10 +100,17 @@ export const DEMO_BUSINESS: Business = {
   status: "active",
   createdAt: "2026-01-01T00:00:00.000Z",
   subscription: {
-    plan: "Pro",
+    plan: "pro",
+    status: "active",
     startDate: "2026-01-01T00:00:00.000Z",
     expiryDate: "2027-01-01T00:00:00.000Z",
-    status: "active",
+    monthlyAiCredits: 120,
+    remainingAiCredits: 120,
+    branchLimit: 1,
+    luckyDrawEnabled: true,
+    autoRenew: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
   },
 };
 
@@ -64,7 +122,7 @@ function normalize(business: Partial<Business> & { id: string; name: string }): 
     email: business.email ?? "",
     status: business.status ?? "active",
     createdAt: business.createdAt ?? new Date().toISOString(),
-    subscription: business.subscription ?? defaultSubscription(),
+    subscription: normalizeSubscription(business.subscription),
   };
 }
 
@@ -150,7 +208,14 @@ export function updateBusinessSubscription(
 
   const next = registry.map((business) => {
     if (business.id !== id) return business;
-    updated = { ...business, subscription: { ...business.subscription, ...updates } };
+    updated = {
+      ...business,
+      subscription: {
+        ...business.subscription,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      },
+    };
     return updated;
   });
 

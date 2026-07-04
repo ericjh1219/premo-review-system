@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CreditCard, Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -36,12 +38,15 @@ import {
   listBusinesses,
   updateBusinessSubscription,
   type Business,
-  type SubscriptionPlan,
   type SubscriptionStatus,
 } from "@/lib/business";
+import {
+  getSubscriptionPlan,
+  SUBSCRIPTION_PLAN_LIST,
+  type SubscriptionPlanId,
+} from "@/lib/subscription-plans";
 
-const PLANS: SubscriptionPlan[] = ["Free", "Starter", "Pro", "Enterprise"];
-const STATUSES: SubscriptionStatus[] = ["active", "expired", "suspended"];
+const STATUSES: SubscriptionStatus[] = ["active", "trial", "expired", "suspended"];
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -56,13 +61,18 @@ function toDateInputValue(value: string) {
 }
 
 type FormState = {
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlanId;
   startDate: string;
   expiryDate: string;
   status: SubscriptionStatus;
+  monthlyAiCredits: number;
+  branchLimit: number;
+  luckyDrawEnabled: boolean;
+  autoRenew: boolean;
 };
 
 export default function SubscriptionsPage() {
+  const searchParams = useSearchParams();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [search, setSearch] = useState("");
   const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
@@ -70,7 +80,15 @@ export default function SubscriptionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    setBusinesses(listBusinesses());
+    const loaded = listBusinesses();
+    setBusinesses(loaded);
+
+    const deepLinkId = searchParams.get("business");
+    if (deepLinkId) {
+      const business = loaded.find((existing) => existing.id === deepLinkId);
+      if (business) openEditForm(business);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredBusinesses = useMemo(() => {
@@ -89,6 +107,10 @@ export default function SubscriptionsPage() {
       startDate: toDateInputValue(business.subscription.startDate),
       expiryDate: toDateInputValue(business.subscription.expiryDate),
       status: business.subscription.status,
+      monthlyAiCredits: business.subscription.monthlyAiCredits,
+      branchLimit: business.subscription.branchLimit,
+      luckyDrawEnabled: business.subscription.luckyDrawEnabled,
+      autoRenew: business.subscription.autoRenew,
     });
     setFormError(null);
   }
@@ -99,6 +121,22 @@ export default function SubscriptionsPage() {
       setForm(null);
       setFormError(null);
     }
+  }
+
+  function handlePlanChange(plan: SubscriptionPlanId | null) {
+    if (!plan) return;
+    const defaults = getSubscriptionPlan(plan);
+    setForm((prev) =>
+      prev
+        ? {
+            ...prev,
+            plan,
+            monthlyAiCredits: defaults.monthlyAiCredits,
+            branchLimit: defaults.branchLimit,
+            luckyDrawEnabled: defaults.luckyDrawEnabled,
+          }
+        : prev
+    );
   }
 
   function handleSave() {
@@ -112,12 +150,20 @@ export default function SubscriptionsPage() {
       setFormError("Expiry date must be on or after the start date.");
       return;
     }
+    if (form.monthlyAiCredits < 0 || form.branchLimit < 1) {
+      setFormError("Monthly AI Credits must be 0 or more, and Branch Limit must be at least 1.");
+      return;
+    }
 
     const updated = updateBusinessSubscription(editingBusiness.id, {
       plan: form.plan,
       startDate: new Date(form.startDate).toISOString(),
       expiryDate: new Date(form.expiryDate).toISOString(),
       status: form.status,
+      monthlyAiCredits: form.monthlyAiCredits,
+      branchLimit: form.branchLimit,
+      luckyDrawEnabled: form.luckyDrawEnabled,
+      autoRenew: form.autoRenew,
     });
 
     if (updated) {
@@ -133,7 +179,7 @@ export default function SubscriptionsPage() {
     <>
       <PageHeader
         title="Subscriptions"
-        description="Manage platform billing and subscription plans for every business"
+        description="Manage platform plans and feature access for every business"
       />
 
       <Card className="border-border/60 bg-card/80 shadow-sm backdrop-blur-sm">
@@ -159,7 +205,8 @@ export default function SubscriptionsPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Business Name</TableHead>
                   <TableHead>Plan</TableHead>
-                  <TableHead>Start Date</TableHead>
+                  <TableHead>AI Credits</TableHead>
+                  <TableHead>Branches</TableHead>
                   <TableHead>Expiry Date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24" />
@@ -168,7 +215,7 @@ export default function SubscriptionsPage() {
               <TableBody>
                 {filteredBusinesses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
                       No businesses match your search.
                     </TableCell>
                   </TableRow>
@@ -176,9 +223,15 @@ export default function SubscriptionsPage() {
                   filteredBusinesses.map((business) => (
                     <TableRow key={business.id}>
                       <TableCell className="font-medium">{business.name}</TableCell>
-                      <TableCell>{business.subscription.plan}</TableCell>
+                      <TableCell className="capitalize">
+                        {getSubscriptionPlan(business.subscription.plan).name}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(business.subscription.startDate)}
+                        {business.subscription.remainingAiCredits} /{" "}
+                        {business.subscription.monthlyAiCredits}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {business.subscription.branchLimit}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(business.subscription.expiryDate)}
@@ -208,28 +261,25 @@ export default function SubscriptionsPage() {
             </div>
             <DialogTitle>Edit Subscription</DialogTitle>
             <DialogDescription>
-              Update the plan and billing period for{" "}
+              Update the plan and feature access for{" "}
               <span className="font-medium text-foreground">{editingBusiness?.name}</span>.
             </DialogDescription>
           </DialogHeader>
 
           {form && (
-            <div className="mt-4 space-y-4">
+            <div className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label htmlFor="subscription-plan">Plan</Label>
-                <Select
-                  value={form.plan}
-                  onValueChange={(value) =>
-                    setForm((prev) => (prev ? { ...prev, plan: value as SubscriptionPlan } : prev))
-                  }
-                >
+                <Select value={form.plan} onValueChange={handlePlanChange}>
                   <SelectTrigger id="subscription-plan" className="w-full">
-                    <SelectValue />
+                    <SelectValue>
+                      {(value: SubscriptionPlanId) => getSubscriptionPlan(value).name}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {PLANS.map((plan) => (
-                      <SelectItem key={plan} value={plan}>
-                        {plan}
+                    {SUBSCRIPTION_PLAN_LIST.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.name} — {plan.priceLabel}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -272,7 +322,7 @@ export default function SubscriptionsPage() {
                   }
                 >
                   <SelectTrigger id="subscription-status" className="w-full">
-                    <SelectValue />
+                    <SelectValue className="capitalize" />
                   </SelectTrigger>
                   <SelectContent>
                     {STATUSES.map((status) => (
@@ -286,6 +336,67 @@ export default function SubscriptionsPage() {
                   A business is automatically treated as expired once the expiry date passes,
                   even if this is still set to active.
                 </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-ai-credits">Monthly AI Credits</Label>
+                  <Input
+                    id="subscription-ai-credits"
+                    type="number"
+                    min={0}
+                    value={form.monthlyAiCredits}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, monthlyAiCredits: Number(event.target.value) } : prev
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="subscription-branch-limit">Branch Limit</Label>
+                  <Input
+                    id="subscription-branch-limit"
+                    type="number"
+                    min={1}
+                    value={form.branchLimit}
+                    onChange={(event) =>
+                      setForm((prev) =>
+                        prev ? { ...prev, branchLimit: Number(event.target.value) } : prev
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border/60 px-3.5 py-3">
+                <div>
+                  <Label className="text-sm font-semibold">Lucky Draw</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Allow this business to run Lucky Draw promotions.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.luckyDrawEnabled}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => (prev ? { ...prev, luckyDrawEnabled: checked } : prev))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-border/60 px-3.5 py-3">
+                <div>
+                  <Label className="text-sm font-semibold">Auto Renew</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Flag only — no billing is processed in this version.
+                  </p>
+                </div>
+                <Switch
+                  checked={form.autoRenew}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => (prev ? { ...prev, autoRenew: checked } : prev))
+                  }
+                />
               </div>
 
               {formError && <p className="text-sm text-destructive">{formError}</p>}

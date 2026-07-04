@@ -260,6 +260,13 @@ export default function BusinessesPage() {
                             >
                               Manage Users
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                router.push(`/admin/subscriptions?business=${business.id}`)
+                              }
+                            >
+                              Manage Subscription
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLoginAsBusiness(business)}>
                               Login As Business
                             </DropdownMenuItem>

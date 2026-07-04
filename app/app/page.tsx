@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, QrCode } from "lucide-react";
+import { ChevronRight, QrCode, Star } from "lucide-react";
 import { PremiumCard } from "@/components/link-generator/premium-card";
 import { LinkRow } from "@/components/link-generator/link-row";
 import { QueryParametersForm } from "@/components/link-generator/query-parameters-form";
 import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
 import { resolveBusinessId } from "@/lib/auth";
+import { getBusinessById, getEffectiveSubscriptionStatus, type Business } from "@/lib/business";
+import { getSubscriptionPlan } from "@/lib/subscription-plans";
 import {
   DEFAULT_LINK_GENERATOR_DATA,
   loadLinkGeneratorData,
@@ -17,17 +19,30 @@ import {
 } from "@/lib/link-generator-storage";
 import { DEFAULT_PROFILE_DATA, loadProfileData, type ProfileData } from "@/lib/profile-storage";
 
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function LinkGeneratorPage() {
   const [links, setLinks] = useState<LinkGeneratorData>(DEFAULT_LINK_GENERATOR_DATA);
   const [locked, setLocked] = useState({ staticPageLink: true, xhsShareLink: true });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
+  const [business, setBusiness] = useState<Business | undefined>(undefined);
 
   useEffect(() => {
     const businessId = resolveBusinessId();
     setLinks(loadLinkGeneratorData(businessId));
     setProfile(loadProfileData(businessId));
+    setBusiness(getBusinessById(businessId));
   }, []);
+
+  const plan = business ? getSubscriptionPlan(business.subscription.plan) : null;
+  const subscriptionStatus = business ? getEffectiveSubscriptionStatus(business) : "trial";
 
   function handleChange(key: keyof LinkGeneratorData, value: string) {
     setLinks((prev) => ({ ...prev, [key]: value }));
@@ -67,7 +82,15 @@ export default function LinkGeneratorPage() {
         </h1>
 
         <div className="mt-5">
-          <PremiumCard />
+          <PremiumCard
+            planName={plan?.name ?? "Basic"}
+            statusLabel={subscriptionStatus.charAt(0).toUpperCase() + subscriptionStatus.slice(1)}
+            dateRangeLabel={
+              business
+                ? `${formatShortDate(business.subscription.startDate)} - ${formatShortDate(business.subscription.expiryDate)}`
+                : ""
+            }
+          />
         </div>
 
         <h2 className="mt-7 text-[17px] font-bold text-[#1a1a1a]">Link Generator</h2>
@@ -98,6 +121,17 @@ export default function LinkGeneratorPage() {
           <span className="flex items-center gap-2 text-sm font-bold">
             <QrCode className="size-5" />
             QR Codes
+          </span>
+          <ChevronRight className="size-4" />
+        </Link>
+
+        <Link
+          href="/app/google-review-categories"
+          className="mt-3 flex items-center justify-between rounded-2xl bg-[#0a0a0a] px-5 py-4 text-white"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <Star className="size-5" />
+            Google Review Categories
           </span>
           <ChevronRight className="size-4" />
         </Link>

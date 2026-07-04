@@ -1,16 +1,22 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { CategoryPickerDialog } from "@/components/share-page/category-picker-dialog";
 import { ClaimRewardSection } from "@/components/share-page/claim-reward-section";
 import { FollowButton } from "@/components/share-page/follow-button";
 import { ShareButton } from "@/components/share-page/share-button";
 import { TemplatePickerDialog } from "@/components/share-page/template-picker-dialog";
 import { WifiDialog } from "@/components/share-page/wifi-dialog";
 import { Toast } from "@/components/link-generator/toast";
+import { getBusinessById } from "@/lib/business";
 import { loadLuckyDrawSettings } from "@/lib/lucky-draw-settings";
 import { loadProfileData, type PlatformKey } from "@/lib/profile-storage";
+import { listCategories, type GoogleReviewCategory } from "@/lib/review-categories";
 import { getReviewTemplates, type ReviewTemplate } from "@/lib/review-templates";
+import { canUseLuckyDraw } from "@/lib/subscription";
 import { trackingService } from "@/lib/tracking-service";
+
+const GOOGLE_REVIEW_SHARE_NAME = "Google Review";
 
 type PlatformDefinition = {
   key: PlatformKey;
@@ -40,9 +46,17 @@ export default function CustomerSharePage({
   const { business: businessId } = use(params);
 
   const [profile, setProfile] = useState(() => loadProfileData(businessId));
+  const [luckyDrawAllowed] = useState(() => {
+    const business = getBusinessById(businessId);
+    return business ? canUseLuckyDraw(business).allowed : false;
+  });
   const [luckyDraw] = useState(() => loadLuckyDrawSettings(businessId));
+  const [categories, setCategories] = useState<GoogleReviewCategory[]>(() =>
+    listCategories(businessId)
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [wifiOpen, setWifiOpen] = useState(false);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [templateState, setTemplateState] = useState<{
     open: boolean;
     platform: string;
@@ -52,10 +66,12 @@ export default function CustomerSharePage({
 
   useEffect(() => {
     setProfile(loadProfileData(businessId));
+    setCategories(listCategories(businessId));
     trackingService.recordEvent(businessId, "Page Entry", "View");
 
     function refresh() {
       setProfile(loadProfileData(businessId));
+      setCategories(listCategories(businessId));
     }
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
@@ -104,6 +120,26 @@ export default function CustomerSharePage({
     }
   }
 
+  /**
+   * Every platform's templates come straight from the business's own Active
+   * Posts — there is no hardcoded review text anywhere. For Google Review
+   * specifically, a categoryId further scopes the result to posts assigned
+   * to that Google Review Category (categories only group Posts, they never
+   * store review text themselves).
+   */
+  function resolveTemplates(shareName: string, categoryId?: string | null): ReviewTemplate[] {
+    return getReviewTemplates(businessId, shareName, categoryId);
+  }
+
+  /** Whether tapping this platform's share button offers more than one thing to pick from. */
+  function hasChoice(definition: PlatformDefinition): boolean {
+    if (definition.shareName === GOOGLE_REVIEW_SHARE_NAME) {
+      if (categories.length > 1) return true;
+      return resolveTemplates(GOOGLE_REVIEW_SHARE_NAME, categories[0]?.id ?? null).length > 1;
+    }
+    return resolveTemplates(definition.shareName).length > 1;
+  }
+
   async function copyAndRedirect(text: string, link: string, platform: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -115,9 +151,33 @@ export default function CustomerSharePage({
     window.open(link, "_blank", "noopener,noreferrer");
   }
 
+  /** Shared tail-end of the Google Review flow once a category has been resolved (chosen, or skipped when there's at most one). */
+  function proceedWithGoogleReview(categoryId: string | null) {
+    const link = buildShareLink(GOOGLE_REVIEW_SHARE_NAME);
+    const templates = resolveTemplates(GOOGLE_REVIEW_SHARE_NAME, categoryId);
+
+    if (templates.length === 0) {
+      trackingService.recordEvent(businessId, GOOGLE_REVIEW_SHARE_NAME, "Share", link);
+      window.open(link, "_blank", "noopener,noreferrer");
+    } else if (templates.length > 1) {
+      setTemplateState({ open: true, platform: GOOGLE_REVIEW_SHARE_NAME, templates, link });
+    } else {
+      void copyAndRedirect(templates[0].text, link, GOOGLE_REVIEW_SHARE_NAME);
+    }
+  }
+
   function handleShareClick(definition: PlatformDefinition) {
+    if (definition.shareName === GOOGLE_REVIEW_SHARE_NAME) {
+      if (categories.length > 1) {
+        setCategoryPickerOpen(true);
+        return;
+      }
+      proceedWithGoogleReview(categories[0]?.id ?? null);
+      return;
+    }
+
     const link = buildShareLink(definition.shareName);
-    const templates = getReviewTemplates(businessId, definition.shareName);
+    const templates = resolveTemplates(definition.shareName);
 
     if (templates.length === 0) {
       trackingService.recordEvent(businessId, definition.shareName, "Share", link);
@@ -127,6 +187,11 @@ export default function CustomerSharePage({
     } else {
       void copyAndRedirect(templates[0].text, link, definition.shareName);
     }
+  }
+
+  function handleCategorySelect(category: GoogleReviewCategory) {
+    setCategoryPickerOpen(false);
+    proceedWithGoogleReview(category.id);
   }
 
   function handleTemplateSelect(template: ReviewTemplate) {
@@ -220,9 +285,7 @@ export default function CustomerSharePage({
               key={definition.key}
               platform={definition.shareName}
               label={definition.shareLabel}
-              hasMultipleTemplates={
-                getReviewTemplates(businessId, definition.shareName).length > 1
-              }
+              hasMultipleTemplates={hasChoice(definition)}
               onClick={() => handleShareClick(definition)}
               onMoreClick={() => handleShareClick(definition)}
             />
@@ -263,11 +326,18 @@ export default function CustomerSharePage({
           businessId={businessId}
           showCustomerForm={profile.buttonConfig.askCustomerInputDetails}
           showUploadProof={profile.buttonConfig.uploadImageProof}
-          showLuckyDraw={luckyDraw.enabled}
+          showLuckyDraw={luckyDraw.enabled && luckyDrawAllowed}
           luckyDrawPrize={luckyDraw.prizeDescription}
           onSubmitted={handleSubmitted}
         />
       </div>
+
+      <CategoryPickerDialog
+        open={categoryPickerOpen}
+        onOpenChange={setCategoryPickerOpen}
+        categories={categories}
+        onSelect={handleCategorySelect}
+      />
 
       <TemplatePickerDialog
         open={templateState.open}

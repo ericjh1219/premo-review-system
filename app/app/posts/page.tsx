@@ -9,8 +9,10 @@ import { PostsTable } from "@/components/link-generator/posts-table";
 import { PostsToolbar } from "@/components/link-generator/posts-toolbar";
 import { Toast } from "@/components/link-generator/toast";
 import { resolveBusinessId } from "@/lib/auth";
+import { getBusinessById } from "@/lib/business";
 import { postBatches, postSocialPlatforms, type NewPostInput, type Post } from "@/lib/mock-data";
 import { loadPosts, savePosts } from "@/lib/post-storage";
+import { canPerformCreateAction } from "@/lib/subscription";
 
 const PAGE_SIZE = 6;
 
@@ -35,6 +37,7 @@ function toPost(input: NewPostInput, existingPosts: Post[]): Post {
     videoLink: input.videoLink ?? "",
     batch: input.batch,
     socialPlatform: input.socialPlatform,
+    categoryId: input.categoryId ?? null,
     isUsed: false,
     status: input.status ?? "active",
     createdAt: new Date().toISOString(),
@@ -134,6 +137,16 @@ export default function PostsPage() {
     setCreateOpen(true);
   }
 
+  function handleOpenCreate() {
+    const business = getBusinessById(businessId);
+    const gate = business ? canPerformCreateAction(business) : { allowed: true as const };
+    if (!gate.allowed) {
+      setToastMessage(gate.message);
+      return;
+    }
+    setCreateOpen(true);
+  }
+
   function handleUpdatePost(id: string, input: NewPostInput) {
     setPosts((current) =>
       current.map((post) =>
@@ -148,6 +161,7 @@ export default function PostsPage() {
               videoLink: input.videoLink ?? "",
               batch: input.batch,
               socialPlatform: input.socialPlatform,
+              categoryId: input.categoryId ?? null,
               status: input.status ?? post.status,
             }
           : post
@@ -242,7 +256,7 @@ export default function PostsPage() {
           onUsedFilterChange={updateFilter(setUsedFilter)}
           statusFilter={statusFilter}
           onStatusFilterChange={updateFilter(setStatusFilter)}
-          onCreatePost={() => setCreateOpen(true)}
+          onCreatePost={handleOpenCreate}
         />
 
         <div className="relative">
@@ -273,6 +287,7 @@ export default function PostsPage() {
         open={createOpen}
         onOpenChange={handleCreateOpenChange}
         socialPlatformOptions={postSocialPlatforms}
+        businessId={businessId}
         onCreate={handleCreatePost}
         onImportPosts={handleImportPosts}
         editingPost={editingPost}

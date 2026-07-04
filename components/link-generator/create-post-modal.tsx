@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { NewPostInput, Post, PostStatus } from "@/lib/mock-data";
+import { listCategories, type GoogleReviewCategory } from "@/lib/review-categories";
 import { PostPreviewModal } from "@/components/link-generator/post-preview-modal";
 import { BatchCreatePanel } from "@/components/link-generator/batch-create-panel";
 import { SheetsImportPanel } from "@/components/link-generator/sheets-import-panel";
@@ -30,11 +31,14 @@ type CreatePostModalProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   socialPlatformOptions: string[];
+  businessId: string;
   onCreate: (post: NewPostInput) => void;
   onImportPosts: (posts: NewPostInput[]) => void;
   editingPost?: Post | null;
   onUpdate: (id: string, post: NewPostInput) => void;
 };
+
+const NO_CATEGORY_VALUE = "none";
 
 const fieldClassName = "h-12 rounded-lg border-[#d1d5db] text-base";
 
@@ -46,6 +50,7 @@ export function CreatePostModal({
   open,
   onOpenChange,
   socialPlatformOptions,
+  businessId,
   onCreate,
   onImportPosts,
   editingPost,
@@ -58,12 +63,21 @@ export function CreatePostModal({
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<PostStatus>("active");
   const [batch, setBatch] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<GoogleReviewCategory[]>([]);
   const [mediaTab, setMediaTab] = useState<"images" | "video">("images");
   const [imageLinks, setImageLinks] = useState("");
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [videoLink, setVideoLink] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  const showCategory = socialPlatform === "Google Review";
+
+  useEffect(() => {
+    if (!open) return;
+    setCategories(listCategories(businessId));
+  }, [open, businessId]);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +104,7 @@ export function CreatePostModal({
     setDescription("");
     setStatus("active");
     setBatch("");
+    setCategoryId(null);
     setMediaTab("images");
     setImageLinks("");
     setImageFiles([]);
@@ -106,6 +121,7 @@ export function CreatePostModal({
     setDescription(editingPost.description);
     setStatus(editingPost.status);
     setBatch(editingPost.batch);
+    setCategoryId(editingPost.categoryId);
     setImageLinks(editingPost.imageLinks);
     setImageFiles([]);
     setVideoLink(editingPost.videoLink);
@@ -131,6 +147,7 @@ export function CreatePostModal({
       imageCount,
       imageLinks: imageLinks.trim(),
       videoLink: videoLink.trim(),
+      categoryId: showCategory ? categoryId : null,
     };
 
     if (editingPost) {
@@ -280,6 +297,36 @@ export function CreatePostModal({
                 className={fieldClassName}
               />
             </div>
+
+            {showCategory && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold text-[#1a1a1a]">Category</Label>
+                <Select
+                  value={categoryId ?? NO_CATEGORY_VALUE}
+                  onValueChange={(value) =>
+                    setCategoryId(value === NO_CATEGORY_VALUE ? null : value)
+                  }
+                >
+                  <SelectTrigger className={cn(fieldClassName, "w-full")}>
+                    <SelectValue>
+                      {(value: string) =>
+                        value === NO_CATEGORY_VALUE
+                          ? "No category"
+                          : (categories.find((category) => category.id === value)?.name ?? value)
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_CATEGORY_VALUE}>No category</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {(showImages || showVideo) && (
               <div className="space-y-2">
