@@ -36,6 +36,8 @@ function toPost(input: NewPostInput, existingPosts: Post[]): Post {
     batch: input.batch,
     socialPlatform: input.socialPlatform,
     isUsed: false,
+    status: input.status ?? "active",
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -47,6 +49,7 @@ export default function PostsPage() {
   const [batch, setBatch] = useState("all");
   const [socialPlatform, setSocialPlatform] = useState("all");
   const [usedFilter, setUsedFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -74,10 +77,11 @@ export default function PostsPage() {
         usedFilter === "all" ||
         (usedFilter === "used" && post.isUsed) ||
         (usedFilter === "unused" && !post.isUsed);
+      const matchesStatus = statusFilter === "all" || post.status === statusFilter;
 
-      return matchesSearch && matchesBatch && matchesPlatform && matchesUsed;
+      return matchesSearch && matchesBatch && matchesPlatform && matchesUsed && matchesStatus;
     });
-  }, [posts, search, batch, socialPlatform, usedFilter]);
+  }, [posts, search, batch, socialPlatform, usedFilter, statusFilter]);
 
   const totalPages = Math.ceil(filteredPosts.length / PAGE_SIZE);
   const currentPage = Math.min(page, Math.max(totalPages, 1));
@@ -104,6 +108,7 @@ export default function PostsPage() {
     setBatch("all");
     setSocialPlatform("all");
     setUsedFilter("all");
+    setStatusFilter("all");
     setPage(1);
   }
 
@@ -143,11 +148,21 @@ export default function PostsPage() {
               videoLink: input.videoLink ?? "",
               batch: input.batch,
               socialPlatform: input.socialPlatform,
+              status: input.status ?? post.status,
             }
           : post
       )
     );
     resetFilters();
+  }
+
+  function handleDeletePost(post: Post) {
+    setPosts((current) => current.filter((existing) => existing.id !== post.id));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(post.id);
+      return next;
+    });
   }
 
   function handleCreateOpenChange(nextOpen: boolean) {
@@ -225,6 +240,8 @@ export default function PostsPage() {
           socialPlatformOptions={postSocialPlatforms}
           usedFilter={usedFilter}
           onUsedFilterChange={updateFilter(setUsedFilter)}
+          statusFilter={statusFilter}
+          onStatusFilterChange={updateFilter(setStatusFilter)}
           onCreatePost={() => setCreateOpen(true)}
         />
 
@@ -232,6 +249,7 @@ export default function PostsPage() {
           <PostsTable
             posts={paginatedPosts}
             onEdit={handleEditPost}
+            onDelete={handleDeletePost}
             selectedIds={selectedIds}
             onToggleRow={handleToggleRow}
             allSelected={allSelected}

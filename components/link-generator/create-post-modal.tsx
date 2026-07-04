@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import type { NewPostInput, Post } from "@/lib/mock-data";
+import type { NewPostInput, Post, PostStatus } from "@/lib/mock-data";
 import { PostPreviewModal } from "@/components/link-generator/post-preview-modal";
 import { BatchCreatePanel } from "@/components/link-generator/batch-create-panel";
 import { SheetsImportPanel } from "@/components/link-generator/sheets-import-panel";
@@ -55,6 +56,7 @@ export function CreatePostModal({
   const [socialPlatform, setSocialPlatform] = useState(defaultPlatform(socialPlatformOptions));
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<PostStatus>("active");
   const [batch, setBatch] = useState("");
   const [mediaTab, setMediaTab] = useState<"images" | "video">("images");
   const [imageLinks, setImageLinks] = useState("");
@@ -86,6 +88,7 @@ export function CreatePostModal({
     setSocialPlatform(defaultPlatform(socialPlatformOptions));
     setTitle("");
     setDescription("");
+    setStatus("active");
     setBatch("");
     setMediaTab("images");
     setImageLinks("");
@@ -101,6 +104,7 @@ export function CreatePostModal({
     setSocialPlatform(editingPost.socialPlatform);
     setTitle(editingPost.title);
     setDescription(editingPost.description);
+    setStatus(editingPost.status);
     setBatch(editingPost.batch);
     setImageLinks(editingPost.imageLinks);
     setImageFiles([]);
@@ -122,6 +126,7 @@ export function CreatePostModal({
       description: description.trim(),
       batch: batch.trim() || "Unassigned",
       socialPlatform,
+      status,
       hasVideo,
       imageCount,
       imageLinks: imageLinks.trim(),
@@ -221,6 +226,19 @@ export function CreatePostModal({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border border-[#d1d5db] px-3.5 py-3">
+              <div>
+                <Label className="text-sm font-semibold text-[#1a1a1a]">Active</Label>
+                <p className="text-xs text-[#6b7280]">
+                  Active posts can appear as review templates on your Share Page.
+                </p>
+              </div>
+              <Switch
+                checked={status === "active"}
+                onCheckedChange={(checked) => setStatus(checked ? "active" : "inactive")}
+              />
             </div>
 
             {showTitle && (

@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { ClaimRewardSection } from "@/components/share-page/claim-reward-section";
 import { FollowButton } from "@/components/share-page/follow-button";
 import { ShareButton } from "@/components/share-page/share-button";
@@ -66,19 +66,6 @@ export default function CustomerSharePage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const instructionFor = useMemo(
-    () => ({
-      Rednote: undefined,
-      "Instagram Story": profile.instructions.instagram,
-      Facebook: profile.instructions.facebook,
-      "Google Review": profile.instructions.googleReview,
-      TikTok: profile.instructions.tiktok,
-      Weixin: profile.instructions.weixin,
-      Lemon8: profile.instructions.lemon8,
-    }),
-    [profile.instructions]
-  );
-
   function buildShareLink(shareName: string) {
     switch (shareName) {
       case "Google Review":
@@ -130,13 +117,12 @@ export default function CustomerSharePage({
 
   function handleShareClick(definition: PlatformDefinition) {
     const link = buildShareLink(definition.shareName);
-    const templates = getReviewTemplates(
-      definition.shareName,
-      profile.business.name,
-      instructionFor[definition.shareName as keyof typeof instructionFor]
-    );
+    const templates = getReviewTemplates(businessId, definition.shareName);
 
-    if (templates.length > 1) {
+    if (templates.length === 0) {
+      trackingService.recordEvent(businessId, definition.shareName, "Share", link);
+      window.open(link, "_blank", "noopener,noreferrer");
+    } else if (templates.length > 1) {
       setTemplateState({ open: true, platform: definition.shareName, templates, link });
     } else {
       void copyAndRedirect(templates[0].text, link, definition.shareName);
@@ -235,11 +221,7 @@ export default function CustomerSharePage({
               platform={definition.shareName}
               label={definition.shareLabel}
               hasMultipleTemplates={
-                getReviewTemplates(
-                  definition.shareName,
-                  profile.business.name,
-                  instructionFor[definition.shareName as keyof typeof instructionFor]
-                ).length > 1
+                getReviewTemplates(businessId, definition.shareName).length > 1
               }
               onClick={() => handleShareClick(definition)}
               onMoreClick={() => handleShareClick(definition)}

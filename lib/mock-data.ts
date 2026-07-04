@@ -334,6 +334,8 @@ export const whatsappMessages = [
   },
 ];
 
+export type PostStatus = "active" | "inactive";
+
 export type Post = {
   id: string;
   title: string;
@@ -345,6 +347,8 @@ export type Post = {
   batch: string;
   socialPlatform: string;
   isUsed: boolean;
+  status: PostStatus;
+  createdAt: string;
 };
 
 export type NewPostInput = {
@@ -356,117 +360,19 @@ export type NewPostInput = {
   imageCount: number;
   imageLinks?: string;
   videoLink?: string;
+  status?: PostStatus;
 };
 
 export const postBatches = ["Batch #1", "Batch #2", "Batch #3"];
 
 export const postSocialPlatforms = [
   "Facebook",
-  "Instagram",
+  "Instagram Story",
   "TikTok",
   "Google Review",
   "Rednote",
-  "WeChat",
+  "Weixin",
   "Lemon8",
-];
-
-export const posts: Post[] = [
-  {
-    id: "POST-101",
-    title: "Summer menu launch teaser",
-    description: "Short clip introducing the new summer tasting menu.",
-    hasVideo: true,
-    imageCount: 2,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #1",
-    socialPlatform: "Instagram",
-    isUsed: true,
-  },
-  {
-    id: "POST-102",
-    title: "5-star review shoutout",
-    description: "Carousel highlighting a recent 5-star customer review.",
-    hasVideo: false,
-    imageCount: 4,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #1",
-    socialPlatform: "Facebook",
-    isUsed: true,
-  },
-  {
-    id: "POST-103",
-    title: "Behind the scenes: kitchen prep",
-    description: "Quick behind-the-scenes look at morning prep routine.",
-    hasVideo: true,
-    imageCount: 0,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #2",
-    socialPlatform: "TikTok",
-    isUsed: false,
-  },
-  {
-    id: "POST-104",
-    title: "Customer testimonial compilation",
-    description: "Compilation of customer testimonials from the past month.",
-    hasVideo: true,
-    imageCount: 1,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #2",
-    socialPlatform: "Google Review",
-    isUsed: false,
-  },
-  {
-    id: "POST-105",
-    title: "New location announcement",
-    description: "Announcement post for the newly opened downtown location.",
-    hasVideo: false,
-    imageCount: 3,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #2",
-    socialPlatform: "Facebook",
-    isUsed: true,
-  },
-  {
-    id: "POST-106",
-    title: "Holiday promo graphic set",
-    description: "Set of promotional graphics for the holiday campaign.",
-    hasVideo: false,
-    imageCount: 5,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #3",
-    socialPlatform: "Instagram",
-    isUsed: false,
-  },
-  {
-    id: "POST-107",
-    title: "Weekly specials showcase",
-    description: "Showcase of this week's chef specials with pricing.",
-    hasVideo: false,
-    imageCount: 2,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #3",
-    socialPlatform: "Rednote",
-    isUsed: false,
-  },
-  {
-    id: "POST-108",
-    title: "Staff spotlight: Maria",
-    description: "Employee spotlight introducing Maria from the front desk.",
-    hasVideo: true,
-    imageCount: 1,
-    imageLinks: "",
-    videoLink: "",
-    batch: "Batch #3",
-    socialPlatform: "TikTok",
-    isUsed: true,
-  },
 ];
 
 export const recentActivity = [

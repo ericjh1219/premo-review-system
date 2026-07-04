@@ -15,6 +15,7 @@ import {
 type PostsTableProps = {
   posts: Post[];
   onEdit: (post: Post) => void;
+  onDelete: (post: Post) => void;
   selectedIds: Set<string>;
   onToggleRow: (id: string) => void;
   allSelected: boolean;
@@ -36,9 +37,24 @@ function YesNoBadge({ value }: { value: boolean }) {
   );
 }
 
+function StatusBadge({ status }: { status: Post["status"] }) {
+  return (
+    <span
+      className={
+        status === "active"
+          ? "rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-700"
+          : "rounded-full bg-zinc-500/10 px-2.5 py-0.5 text-xs font-semibold text-zinc-500"
+      }
+    >
+      {status === "active" ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
 export function PostsTable({
   posts,
   onEdit,
+  onDelete,
   selectedIds,
   onToggleRow,
   allSelected,
@@ -92,13 +108,16 @@ export function PostsTable({
             <TableHead className="border-r border-[#eab308]/30 font-bold text-[#1a1a1a]">
               Is used
             </TableHead>
+            <TableHead className="border-r border-[#eab308]/30 font-bold text-[#1a1a1a]">
+              Status
+            </TableHead>
             <TableHead className="font-bold text-[#1a1a1a]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {posts.length === 0 ? (
             <TableRow className="bg-[#fef9c3] hover:bg-[#fef9c3]">
-              <TableCell colSpan={10} className="py-8 text-center font-medium text-[#92400e]">
+              <TableCell colSpan={11} className="py-8 text-center font-medium text-[#92400e]">
                 No data found
               </TableCell>
             </TableRow>
@@ -131,6 +150,9 @@ export function PostsTable({
                   <YesNoBadge value={post.isUsed} />
                 </TableCell>
                 <TableCell>
+                  <StatusBadge status={post.status} />
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -143,6 +165,7 @@ export function PostsTable({
                     <button
                       type="button"
                       aria-label={`Delete ${post.title}`}
+                      onClick={() => onDelete(post)}
                       className="flex size-7 items-center justify-center rounded-md text-red-600 hover:bg-red-500/10"
                     >
                       <Trash2 className="size-3.5" />

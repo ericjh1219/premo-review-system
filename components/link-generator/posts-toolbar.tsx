@@ -20,6 +20,8 @@ type PostsToolbarProps = {
   socialPlatformOptions: string[];
   usedFilter: string;
   onUsedFilterChange: (value: string) => void;
+  statusFilter: string;
+  onStatusFilterChange: (value: string) => void;
   onCreatePost: () => void;
 };
 
@@ -34,6 +36,8 @@ export function PostsToolbar({
   socialPlatformOptions,
   usedFilter,
   onUsedFilterChange,
+  statusFilter,
+  onStatusFilterChange,
   onCreatePost,
 }: PostsToolbarProps) {
   return (
@@ -99,6 +103,23 @@ export function PostsToolbar({
           <SelectItem value="all">All</SelectItem>
           <SelectItem value="used">Used</SelectItem>
           <SelectItem value="unused">Unused</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={statusFilter} onValueChange={(value) => onStatusFilterChange(value ?? "all")}>
+        <SelectTrigger className="h-10 w-fit min-w-[100px] shrink-0 bg-white/70">
+          <SelectValue className="*:line-clamp-none">
+            {(value: string) => {
+              if (value === "active") return "Active";
+              if (value === "inactive") return "Inactive";
+              return "All Status";
+            }}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">All Status</SelectItem>
+          <SelectItem value="active">Active</SelectItem>
+          <SelectItem value="inactive">Inactive</SelectItem>
         </SelectContent>
       </Select>
 

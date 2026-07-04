@@ -17,7 +17,7 @@ const MOCK_SHEET_ROWS: NewPostInput[] = [
   {
     title: "Autumn menu spotlight",
     description: "Featuring our new autumn seasonal dishes.",
-    socialPlatform: "Instagram",
+    socialPlatform: "Instagram Story",
     batch: "Batch #6",
     hasVideo: true,
     imageCount: 0,

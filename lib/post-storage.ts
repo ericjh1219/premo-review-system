@@ -1,29 +1,21 @@
-import { DEMO_BUSINESS } from "@/lib/business";
-import { posts as DEMO_SEED_POSTS, type Post } from "@/lib/mock-data";
+import type { Post } from "@/lib/mock-data";
 
 function storageKey(businessId: string) {
   return `premo-posts:${businessId}`;
 }
 
 /**
- * Loads a business's posts, scoped by business id. The demo business is
- * seeded with the existing example posts on first load; any other business
- * starts empty until it creates its own.
+ * Loads a business's posts, scoped by business id. Every business starts
+ * with an empty content library — there is no shared demo/seed data.
  */
 export function loadPosts(businessId: string): Post[] {
-  if (typeof window === "undefined") {
-    return businessId === DEMO_BUSINESS.id ? DEMO_SEED_POSTS : [];
-  }
+  if (typeof window === "undefined") return [];
 
   try {
     const raw = window.localStorage.getItem(storageKey(businessId));
-    if (raw) return JSON.parse(raw) as Post[];
-
-    const seed = businessId === DEMO_BUSINESS.id ? DEMO_SEED_POSTS : [];
-    savePosts(businessId, seed);
-    return seed;
+    return raw ? (JSON.parse(raw) as Post[]) : [];
   } catch {
-    return businessId === DEMO_BUSINESS.id ? DEMO_SEED_POSTS : [];
+    return [];
   }
 }
 

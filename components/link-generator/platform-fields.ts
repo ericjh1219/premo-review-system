@@ -8,10 +8,10 @@ export type PlatformField = "title" | "description" | "images" | "video";
 export const PLATFORM_FIELDS: Record<string, PlatformField[]> = {
   Rednote: ["title", "description", "images", "video"],
   Facebook: ["description", "images", "video"],
-  Instagram: ["description", "images", "video"],
+  "Instagram Story": ["description", "images", "video"],
   TikTok: ["description", "video"],
   "Google Review": ["description"],
-  WeChat: ["description", "images", "video"],
+  Weixin: ["description", "images", "video"],
   Lemon8: ["title", "description", "images"],
 };
 
