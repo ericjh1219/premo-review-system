@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/dashboard/status-badge";
@@ -66,6 +67,7 @@ type FormState = {
 const EMPTY_FORM: FormState = { id: "", name: "", contactName: "", email: "" };
 
 export default function BusinessesPage() {
+  const router = useRouter();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
@@ -246,6 +248,11 @@ export default function BusinessesPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEditForm(business)}>
                               Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => router.push(`/businesses/${business.id}/users`)}
+                            >
+                              Manage Users
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(business)}>
                               {business.status === "active" ? "Deactivate" : "Activate"}
