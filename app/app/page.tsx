@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ChevronRight, QrCode } from "lucide-react";
 import { PremiumCard } from "@/components/link-generator/premium-card";
 import { LinkRow } from "@/components/link-generator/link-row";
 import { QueryParametersForm } from "@/components/link-generator/query-parameters-form";
@@ -88,6 +90,17 @@ export default function LinkGeneratorPage() {
             onCopy={() => handleCopy(links.xhsShareLink)}
           />
         </div>
+
+        <Link
+          href="/app/qr-codes"
+          className="mt-3 flex items-center justify-between rounded-2xl bg-[#0a0a0a] px-5 py-4 text-white"
+        >
+          <span className="flex items-center gap-2 text-sm font-bold">
+            <QrCode className="size-5" />
+            QR Codes
+          </span>
+          <ChevronRight className="size-4" />
+        </Link>
 
         <div className="mt-5">
           <QueryParametersForm />

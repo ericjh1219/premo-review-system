@@ -1,5 +1,6 @@
-import { Wifi } from "lucide-react";
+import { QrCode, Wifi } from "lucide-react";
 import { FcGoogle } from "react-icons/fc";
+import { MdOutlineAdUnits } from "react-icons/md";
 import { SiFacebook, SiInstagram } from "react-icons/si";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,22 @@ export function PlatformIcon({ platform, size = "lg", className }: PlatformIconP
       return (
         <div className={cn(box, "flex shrink-0 items-center justify-center", className)}>
           <Wifi className={cn(iconSize, "text-white")} />
+        </div>
+      );
+    case "Share Page":
+      return (
+        <div
+          className={cn(box, "flex shrink-0 items-center justify-center bg-[#2dd4bf]", className)}
+        >
+          <QrCode className={cn(iconSize, "text-white")} />
+        </div>
+      );
+    case "Custom Website":
+      return (
+        <div
+          className={cn(box, "flex shrink-0 items-center justify-center bg-[#f97316]", className)}
+        >
+          <MdOutlineAdUnits className={cn(iconSize, "text-white")} />
         </div>
       );
     default:
