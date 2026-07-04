@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
   FileText,
@@ -10,6 +11,16 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { logout } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const navItems = [
   { icon: Home, bg: "bg-[#4ecdc4]", iconClass: "text-white", href: "/app" },
@@ -21,6 +32,14 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  function handleConfirmLogout() {
+    logout();
+    setConfirmOpen(false);
+    router.push("/login");
+  }
 
   return (
     <nav className="fixed inset-x-0 bottom-5 z-50 flex justify-center px-4">
@@ -50,6 +69,7 @@ export function BottomNav() {
             <button
               key={index}
               type="button"
+              onClick={() => setConfirmOpen(true)}
               aria-label={`Navigation item ${index + 1}`}
               className={itemClassName}
             >
@@ -58,6 +78,26 @@ export function BottomNav() {
           );
         })}
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Log out?</DialogTitle>
+            <DialogDescription>
+              You'll be signed out of your session and returned to the login screen.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmLogout}>
+              Log Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </nav>
   );
 }
