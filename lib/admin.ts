@@ -1,4 +1,4 @@
-import { hashPassword, verifyPassword } from "@/lib/password";
+import { hashPassword, isHashedPassword, verifyPassword } from "@/lib/password";
 
 export type AdminRole = "Admin" | "Staff";
 export type AdminStatus = "active" | "inactive";
@@ -66,9 +66,27 @@ export function findAdminByEmail(email: string): AdminUser | undefined {
   return readAdmins().find((admin) => admin.email.trim().toLowerCase() === normalized);
 }
 
-/** Verifies a plaintext password against this admin's stored hash. */
+/**
+ * Verifies a plaintext password against this admin's stored hash.
+ *
+ * Some browsers may still have an admin record seeded before password
+ * hashing was introduced (a plaintext password string). If so, and the
+ * plaintext matches, transparently upgrade the stored record to a proper
+ * hash so it never sits around in plaintext after a successful login.
+ */
 export async function verifyAdminPassword(admin: AdminUser, password: string): Promise<boolean> {
+  if (!isHashedPassword(admin.password)) {
+    if (admin.password !== password) return false;
+    await migrateLegacyPassword(admin.id, password);
+    return true;
+  }
   return verifyPassword(password, admin.password);
+}
+
+async function migrateLegacyPassword(id: string, password: string) {
+  const admins = readAdmins();
+  const hashed = await hashPassword(password);
+  writeAdmins(admins.map((admin) => (admin.id === id ? { ...admin, password: hashed } : admin)));
 }
 
 function countAdminsWithRole(admins: AdminUser[], excludingId?: string) {

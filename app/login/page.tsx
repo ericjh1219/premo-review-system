@@ -7,6 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getSession, login } from "@/lib/auth";
 
 export default function LoginPage() {
@@ -14,6 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
 
   useEffect(() => {
     if (getSession()) {
@@ -74,6 +82,7 @@ export default function LoginPage() {
                   <Label htmlFor="password">Password</Label>
                   <button
                     type="button"
+                    onClick={() => setForgotPasswordOpen(true)}
                     className="text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Forgot password?
@@ -100,6 +109,18 @@ export default function LoginPage() {
           Admin login: contact@premostudio.com / premo123
         </p>
       </div>
+
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Coming Soon</DialogTitle>
+            <DialogDescription>
+              Password recovery isn't available yet. Please contact a PREMO System Owner to reset
+              your password.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

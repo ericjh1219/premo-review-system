@@ -38,3 +38,13 @@ export async function verifyPassword(password: string, stored: string): Promise<
   if (!salt || !hash) return false;
   return (await sha256Hex(`${salt}:${password}`)) === hash;
 }
+
+// Salt length isn't fixed-width (the seeded demo admin uses a human-readable
+// placeholder salt), so only the hash half — always a 64-char SHA-256 hex
+// digest — is checked strictly.
+const HASHED_PASSWORD_PATTERN = /^[^:]+:[0-9a-f]{64}$/;
+
+/** Whether a stored value is already a "salt:hash" string produced by hashPassword. */
+export function isHashedPassword(value: string): boolean {
+  return HASHED_PASSWORD_PATTERN.test(value);
+}
