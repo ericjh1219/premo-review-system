@@ -66,7 +66,7 @@ export function PostPreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg p-6">
+      <DialogContent className="theme-force-light max-w-lg p-6">
         <DialogHeader>
           <DialogTitle>Preview</DialogTitle>
         </DialogHeader>

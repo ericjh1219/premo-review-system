@@ -45,7 +45,7 @@ export function TrackingReportModal({ open, onOpenChange, events }: TrackingRepo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-6">
+      <DialogContent className="theme-force-light max-w-3xl p-6">
         <DialogHeader>
           <DialogTitle>Tracking Report</DialogTitle>
           <DialogDescription>

@@ -20,7 +20,7 @@ type WifiDialogProps = {
 export function WifiDialog({ open, onOpenChange, ssid, password, onCopyPassword }: WifiDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm p-6">
+      <DialogContent className="theme-force-light max-w-sm p-6">
         <DialogHeader>
           <DialogTitle>Connect to WiFi</DialogTitle>
           <DialogDescription>Use these details to join our network.</DialogDescription>

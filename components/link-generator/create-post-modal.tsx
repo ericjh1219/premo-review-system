@@ -175,7 +175,7 @@ export function CreatePostModal({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-xl p-6">
+        <DialogContent className="theme-force-light max-w-xl p-6">
           <DialogHeader>
             <DialogTitle>{isEditing ? "Edit" : "Create"}</DialogTitle>
             <DialogDescription>

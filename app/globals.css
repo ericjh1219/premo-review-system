@@ -117,6 +117,40 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/*
+ * The customer/business "mobile" screens (Link Generator, Posts, Profile,
+ * Share Page, QR Codes) are a fixed, always-light design — they use their
+ * own hardcoded brand colors and were never meant to follow the admin
+ * dashboard's dark mode toggle. Their dialogs still reuse the shared
+ * Dialog/Input/Button primitives, though, which read the same design
+ * tokens as the rest of the app — so when the admin's dark mode is on,
+ * those tokens flip to dark-mode values (near-black background, near-white
+ * text) inside a dialog whose own hardcoded content still assumes a light
+ * background, producing dark-on-dark or light-on-light text. Applying this
+ * class pins every token for that subtree back to its light-mode value, so
+ * these dialogs render identically regardless of the global theme.
+ */
+.theme-force-light {
+  --background: oklch(0.99 0.002 264);
+  --foreground: oklch(0.145 0.01 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.01 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0.01 264);
+  --primary: oklch(0.55 0.2 264);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

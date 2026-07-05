@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -63,6 +63,13 @@ export function ImageUploadField({
   className,
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // Tracks the last src that failed to load, so a broken/invalid stored URL
+  // falls back to the placeholder instead of leaving a broken <img> icon on
+  // screen. Comparing against the current `image` (rather than a plain
+  // boolean) means a fresh upload — a new src — always gets a real chance
+  // to load again.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = Boolean(image) && image !== failedSrc;
 
   async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -77,9 +84,14 @@ export function ImageUploadField({
     <div>
       <p className="text-sm font-medium text-[#57534e]">{label}</p>
       <div className={cn("relative mt-2 size-24 overflow-hidden rounded-xl", className)}>
-        {image ? (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt={label} className="size-full object-cover" />
+          <img
+            src={image!}
+            alt={label}
+            className="size-full object-cover"
+            onError={() => setFailedSrc(image)}
+          />
         ) : (
           placeholder
         )}

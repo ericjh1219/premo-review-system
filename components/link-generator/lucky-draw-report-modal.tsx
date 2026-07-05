@@ -56,7 +56,7 @@ export function LuckyDrawReportModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl p-6">
+      <DialogContent className="theme-force-light max-w-3xl p-6">
         <DialogHeader>
           <DialogTitle>Lucky Draw Participant Report</DialogTitle>
           <DialogDescription>

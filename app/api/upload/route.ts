@@ -2,12 +2,12 @@ import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { UPLOAD_DIR } from "@/lib/server/upload-storage";
 
 // Route Handlers default to the Node.js runtime, but this is pinned
 // explicitly because "fs" and "crypto" are unavailable on the Edge runtime.
 export const runtime = "nodejs";
 
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 // Extensions are derived from the validated MIME type, never from the
@@ -91,13 +91,21 @@ export async function POST(request: Request) {
     }
 
     const filename = `${randomUUID()}${allowed.extension}`;
+    const filePath = path.join(UPLOAD_DIR, filename);
 
     await fs.mkdir(UPLOAD_DIR, { recursive: true });
-    await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer, { mode: 0o644 });
+    await fs.writeFile(filePath, buffer, { mode: 0o644 });
+    // Confirms the file is actually readable back from disk before telling
+    // the client it succeeded, instead of trusting the write blindly.
+    await fs.access(filePath);
 
+    // Served back through our own route (app/api/uploads/[filename]) rather
+    // than a bare /uploads/ static path, so read and write always resolve
+    // the same directory regardless of what process.cwd() the server was
+    // actually launched from.
     return NextResponse.json({
       success: true,
-      url: `/uploads/${filename}`,
+      url: `/api/uploads/${filename}`,
       filename,
     });
   } catch {

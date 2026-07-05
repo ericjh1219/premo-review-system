@@ -26,7 +26,7 @@ export function TemplatePickerDialog({
 }: TemplatePickerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md p-6">
+      <DialogContent className="theme-force-light max-w-md p-6">
         <DialogHeader>
           <DialogTitle>Choose a review for {platform}</DialogTitle>
           <DialogDescription>

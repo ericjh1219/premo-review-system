@@ -49,6 +49,27 @@ export function CustomerSharePage({ businessId }: { businessId: string }) {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [wifiOpen, setWifiOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  // Tracks a profile/background image src that failed to load, so a
+  // broken/invalid stored URL falls back to the normal placeholder instead
+  // of a broken <img> icon (or a blank background). Compared against the
+  // current src rather than a plain boolean so a newly-saved image always
+  // gets a fresh chance to load.
+  const [failedProfileImage, setFailedProfileImage] = useState<string | null>(null);
+  const [failedBackgroundImage, setFailedBackgroundImage] = useState<string | null>(null);
+
+  // A broken background-image URL doesn't fire any visible "broken icon" —
+  // CSS just renders nothing — but that also silently drops the page's own
+  // fallback gradient, since the inline style replaces it entirely. Preload
+  // the image directly so a failed load can fall back to the gradient
+  // instead of a blank background.
+  useEffect(() => {
+    const src = profile.backgroundImage;
+    if (!src) return;
+
+    const probe = new Image();
+    probe.onerror = () => setFailedBackgroundImage(src);
+    probe.src = src;
+  }, [profile.backgroundImage]);
   const [templateState, setTemplateState] = useState<{
     open: boolean;
     platform: string;
@@ -265,11 +286,16 @@ export function CustomerSharePage({ businessId }: { businessId: string }) {
   const showWifiButton = profile.wifi.ssid.trim().length > 0;
   const showCustomWebpage = profile.customWebPage.customLink.trim().length > 0;
 
+  const showBackgroundImage =
+    Boolean(profile.backgroundImage) && profile.backgroundImage !== failedBackgroundImage;
+  const showProfileImage =
+    Boolean(profile.profileImage) && profile.profileImage !== failedProfileImage;
+
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-black to-[#71717a] bg-cover bg-center pb-16"
       style={
-        profile.backgroundImage
+        showBackgroundImage
           ? {
               backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(113,113,122,0.75)), url(${profile.backgroundImage})`,
             }
@@ -279,12 +305,13 @@ export function CustomerSharePage({ businessId }: { businessId: string }) {
       <div className="mx-auto w-full max-w-md space-y-4 px-5 pt-10">
         <div className="flex flex-col items-center">
           <div className="relative size-40 overflow-hidden rounded-[28px] shadow-lg">
-            {profile.profileImage ? (
+            {showProfileImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={profile.profileImage}
+                src={profile.profileImage!}
                 alt="Business profile"
                 className="size-full object-cover"
+                onError={() => setFailedProfileImage(profile.profileImage)}
               />
             ) : (
               <div className="flex size-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#e0777d] to-[#c85a63] p-2">
