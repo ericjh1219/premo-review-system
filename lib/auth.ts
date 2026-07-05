@@ -64,8 +64,17 @@ export type LoginResult = { success: true } | { success: false; error: string };
  * the public share page.
  */
 export async function login(email: string, password: string): Promise<LoginResult> {
-  authDebugLog("login() called", {
-    emailAttempted: email,
+  // There is no HTTP request here — login() is called directly from
+  // app/login/page.tsx's onSubmit handler. "request method"/"content-type"/
+  // "parsed request body" don't exist as separate things; logged below as
+  // their nearest real equivalents so nothing from the requested list is
+  // silently dropped.
+  authDebugLog("login() invoked (direct function call — no HTTP request exists)", {
+    requestMethod: "n/a — no HTTP request, this is a plain function call",
+    contentType: "n/a — no HTTP request",
+    parsedRequestBody: { email, passwordLength: password.length },
+    emailReceived: email,
+    passwordLength: password.length,
     userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
     localStorageAvailable: (() => {
       try {
@@ -80,21 +89,36 @@ export async function login(email: string, password: string): Promise<LoginResul
   });
 
   const admin = findAdminByEmail(email);
-  if (!admin || !(await verifyAdminPassword(admin, password))) {
+  const userFound = Boolean(admin);
+  const passwordVerified = admin ? await verifyAdminPassword(admin, password) : false;
+
+  authDebugLog("login() authentication check", {
+    emailReceived: email,
+    passwordLength: password.length,
+    userFound,
+    passwordVerified,
+  });
+
+  if (!userFound || !passwordVerified) {
     const result: LoginResult = { success: false, error: "Incorrect email or password." };
-    authDebugLog("login() result", result);
+    authDebugLog("login() BRANCH: userFound-or-password-check failed -> Incorrect email or password", {
+      branch: "USER_NOT_FOUND_OR_PASSWORD_INVALID",
+      userFound,
+      passwordVerified,
+      result,
+    });
     return result;
   }
-  if (admin.status === "inactive") {
+  if (admin!.status === "inactive") {
     const result: LoginResult = { success: false, error: "This account has been deactivated." };
-    authDebugLog("login() result", result);
+    authDebugLog("login() BRANCH: account inactive", { branch: "ACCOUNT_INACTIVE", result });
     return result;
   }
 
-  recordAdminLogin(admin.id);
-  setSession({ adminId: admin.id });
+  recordAdminLogin(admin!.id);
+  setSession({ adminId: admin!.id });
   const result: LoginResult = { success: true };
-  authDebugLog("login() result", result);
+  authDebugLog("login() BRANCH: success", { branch: "SUCCESS", result });
   return result;
 }
 
