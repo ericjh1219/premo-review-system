@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getSession, login } from "@/lib/auth";
+import { APP_VERSION } from "@/lib/version";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -88,6 +89,10 @@ export default function LoginPage() {
           </CardContent>
         </Card>
       </div>
+
+      <span className="fixed bottom-4 left-4 text-xs text-muted-foreground/60">
+        {APP_VERSION}
+      </span>
     </div>
   );
 }
