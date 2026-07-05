@@ -28,14 +28,37 @@ function storageKey(businessId: string) {
 /** Retired third-party link shortener this app used before generating its own Share Page URLs — never trust a persisted value pointing at it. */
 const RETIRED_DOMAIN = "jshare.link";
 
-/** Drops any persisted field that still points at a retired/foreign domain, so old browser storage self-heals instead of freezing a business onto a dead link forever. */
+/** A dev-server origin (localhost/127.0.0.1, any port) — never a real production domain. */
+const DEV_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+/**
+ * Whether a persisted value is actually one of OUR OWN auto-generated Share
+ * Page links, just computed against a stale dev origin — as opposed to a
+ * business's genuine custom URL, which would essentially never coincidentally
+ * take the exact shape "{origin}/share/{this business's own id}". Matching
+ * only that exact shape (not "any non-production origin") means a business's
+ * real customization is never touched.
+ */
+function isStaleGeneratedLink(value: string, businessId: string): boolean {
+  if (value.includes(RETIRED_DOMAIN)) return true;
+
+  try {
+    const url = new URL(value);
+    return DEV_ORIGIN_PATTERN.test(url.origin) && url.pathname === `/share/${businessId}`;
+  } catch {
+    return false;
+  }
+}
+
+/** Drops any persisted field that's actually a stale auto-generated default, so old browser storage self-heals instead of freezing a business onto a dead/dev link forever. */
 function discardStaleValues(
-  defaults: LinkGeneratorData,
-  parsed: Partial<LinkGeneratorData>
+  parsed: Partial<LinkGeneratorData>,
+  businessId: string
 ): Partial<LinkGeneratorData> {
   const sanitized = { ...parsed };
   for (const key of Object.keys(sanitized) as (keyof LinkGeneratorData)[]) {
-    if (sanitized[key]?.includes(RETIRED_DOMAIN)) delete sanitized[key];
+    const value = sanitized[key];
+    if (value && isStaleGeneratedLink(value, businessId)) delete sanitized[key];
   }
   return sanitized;
 }
@@ -53,7 +76,7 @@ export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
     if (!raw) return defaults;
 
     const parsed = JSON.parse(raw) as Partial<LinkGeneratorData>;
-    return { ...defaults, ...discardStaleValues(defaults, parsed) };
+    return { ...defaults, ...discardStaleValues(parsed, businessId) };
   } catch {
     return defaults;
   }
