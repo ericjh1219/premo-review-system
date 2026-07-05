@@ -8,8 +8,10 @@ import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
 import { ImageUploadField } from "@/components/link-generator/profile/image-upload-field";
 import { ToggleRow } from "@/components/link-generator/profile/toggle-row";
+import { resolveBusinessId } from "@/lib/auth";
 import {
   DEFAULT_PROFILE_DATA,
+  fetchProfileData,
   PLATFORM_LABELS,
   PLATFORM_ORDER,
   type MaxRefreshOption,
@@ -33,28 +35,21 @@ function SectionHeading({
 }
 
 export default function ProfilePage() {
+  const [businessId] = useState(resolveBusinessId);
   const [data, setData] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) throw new Error("Failed to load profile");
-        const json = (await res.json()) as ProfileData;
-        if (!cancelled) setData(json);
-      } catch {
-        if (!cancelled) setToastMessage("Unable to load profile.");
-      }
-    }
+    fetchProfileData(businessId).then((loaded) => {
+      if (!cancelled) setData(loaded);
+    });
 
-    load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [businessId]);
 
   /**
    * ImageUploadField already resizes/re-encodes the picked file into a data
@@ -181,7 +176,7 @@ export default function ProfilePage() {
 
   async function handleSave() {
     try {
-      const res = await fetch("/api/profile", {
+      const res = await fetch(`/api/profile?businessId=${encodeURIComponent(businessId)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),

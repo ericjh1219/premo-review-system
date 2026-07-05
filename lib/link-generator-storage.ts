@@ -25,6 +25,21 @@ function storageKey(businessId: string) {
   return `premo-link-generator-data:${businessId}`;
 }
 
+/** Retired third-party link shortener this app used before generating its own Share Page URLs — never trust a persisted value pointing at it. */
+const RETIRED_DOMAIN = "jshare.link";
+
+/** Drops any persisted field that still points at a retired/foreign domain, so old browser storage self-heals instead of freezing a business onto a dead link forever. */
+function discardStaleValues(
+  defaults: LinkGeneratorData,
+  parsed: Partial<LinkGeneratorData>
+): Partial<LinkGeneratorData> {
+  const sanitized = { ...parsed };
+  for (const key of Object.keys(sanitized) as (keyof LinkGeneratorData)[]) {
+    if (sanitized[key]?.includes(RETIRED_DOMAIN)) delete sanitized[key];
+  }
+  return sanitized;
+}
+
 export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
   const defaults = getDefaultLinkGeneratorData(businessId);
   if (typeof window === "undefined") return defaults;
@@ -38,7 +53,7 @@ export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
     if (!raw) return defaults;
 
     const parsed = JSON.parse(raw) as Partial<LinkGeneratorData>;
-    return { ...defaults, ...parsed };
+    return { ...defaults, ...discardStaleValues(defaults, parsed) };
   } catch {
     return defaults;
   }

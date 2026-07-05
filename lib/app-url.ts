@@ -19,3 +19,15 @@ export function buildShareUrl(businessId: string): string {
 export function isDevelopmentAppUrl(): boolean {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(APP_URL);
 }
+
+// NEXT_PUBLIC_* values are inlined at build time, so a production build that
+// still resolves to the localhost fallback means NEXT_PUBLIC_APP_URL wasn't
+// set when `next build` ran — surface that loudly instead of silently
+// generating localhost links in production.
+if (process.env.NODE_ENV === "production" && isDevelopmentAppUrl()) {
+  console.error(
+    "[premo] NEXT_PUBLIC_APP_URL was not set at build time — generated links will incorrectly point at",
+    APP_URL,
+    "instead of the production domain. Set NEXT_PUBLIC_APP_URL and rebuild."
+  );
+}

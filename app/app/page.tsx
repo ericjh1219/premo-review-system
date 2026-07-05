@@ -17,7 +17,7 @@ import {
   saveLinkGeneratorData,
   type LinkGeneratorData,
 } from "@/lib/link-generator-storage";
-import { DEFAULT_PROFILE_DATA, loadProfileData, type ProfileData } from "@/lib/profile-storage";
+import { DEFAULT_PROFILE_DATA, fetchProfileData, type ProfileData } from "@/lib/profile-storage";
 import { isDevelopmentAppUrl } from "@/lib/app-url";
 
 function formatShortDate(value: string) {
@@ -40,7 +40,7 @@ export default function LinkGeneratorPage() {
 
   useEffect(() => {
     setLinks(loadLinkGeneratorData(businessId));
-    setProfile(loadProfileData(businessId));
+    fetchProfileData(businessId).then(setProfile);
     getBusinessById(businessId).then(setBusiness);
   }, [businessId]);
 

@@ -16,7 +16,7 @@ import { StatCard } from "@/components/link-generator/stat-card";
 import { TrackingReportModal } from "@/components/link-generator/tracking-report-modal";
 import { getAuthenticatedAdmin, logout, resolveBusinessId } from "@/lib/auth";
 import { getMockLuckyDrawParticipants, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
-import { loadProfileData } from "@/lib/profile-storage";
+import { DEFAULT_PROFILE_DATA, fetchProfileData, type ProfileData } from "@/lib/profile-storage";
 import { trackingService } from "@/lib/tracking-service";
 
 const PLATFORM_ICONS: Record<string, ReactNode> = {
@@ -61,6 +61,7 @@ export default function LinkGeneratorDashboardPage() {
   const [trackingOpen, setTrackingOpen] = useState(false);
   const [luckyDrawOpen, setLuckyDrawOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
 
   useEffect(() => {
     function refresh() {
@@ -74,7 +75,15 @@ export default function LinkGeneratorDashboardPage() {
     };
   }, []);
 
-  const profile = useMemo(() => loadProfileData(businessId), [businessId, refreshTick]);
+  useEffect(() => {
+    let cancelled = false;
+    fetchProfileData(businessId).then((loaded) => {
+      if (!cancelled) setProfile(loaded);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, refreshTick]);
 
   const rangeStart = startTime ? new Date(startTime).getTime() : -Infinity;
   const rangeEnd = endTime ? new Date(endTime).getTime() : Infinity;

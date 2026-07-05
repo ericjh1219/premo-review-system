@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { QrCodeCard } from "@/components/link-generator/qr-code-card";
 import { resolveBusinessId } from "@/lib/auth";
-import { DEFAULT_PROFILE_DATA, loadProfileData, type ProfileData } from "@/lib/profile-storage";
+import { DEFAULT_PROFILE_DATA, fetchProfileData, type ProfileData } from "@/lib/profile-storage";
 import { buildQrCodeEntries } from "@/lib/qr-codes";
 
 export default function QrCodesPage() {
@@ -14,14 +14,18 @@ export default function QrCodesPage() {
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
 
   useEffect(() => {
-    setProfile(loadProfileData(businessId));
+    let cancelled = false;
 
     function refresh() {
-      setProfile(loadProfileData(businessId));
+      fetchProfileData(businessId).then((loaded) => {
+        if (!cancelled) setProfile(loaded);
+      });
     }
+    refresh();
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
     };

@@ -32,8 +32,15 @@ async function readBusinessesFile(): Promise<Business[]> {
 }
 
 export async function GET() {
-  const businesses = await readBusinessesFile();
-  return NextResponse.json(businesses);
+  try {
+    const businesses = await readBusinessesFile();
+    return NextResponse.json(businesses);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to load businesses." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -54,6 +61,13 @@ export async function PUT(request: Request) {
     );
   }
 
-  await writeBusinessesFile(body as Business[]);
-  return NextResponse.json({ success: true });
+  try {
+    await writeBusinessesFile(body as Business[]);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to save businesses." },
+      { status: 500 }
+    );
+  }
 }

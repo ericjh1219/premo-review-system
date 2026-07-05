@@ -68,8 +68,15 @@ export async function GET(request: Request) {
     );
   }
 
-  const categories = await readCategoriesFile(businessId);
-  return NextResponse.json(categories);
+  try {
+    const categories = await readCategoriesFile(businessId);
+    return NextResponse.json(categories);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to load categories." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -100,6 +107,13 @@ export async function PUT(request: Request) {
     );
   }
 
-  await writeCategoriesFile(businessId, body as GoogleReviewCategory[]);
-  return NextResponse.json({ success: true });
+  try {
+    await writeCategoriesFile(businessId, body as GoogleReviewCategory[]);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to save categories." },
+      { status: 500 }
+    );
+  }
 }

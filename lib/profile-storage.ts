@@ -185,12 +185,6 @@ function defaultsFor(businessId: string): ProfileData {
   return businessId === DEMO_BUSINESS.id ? DEMO_PROFILE_DATA : DEFAULT_PROFILE_DATA;
 }
 
-const LEGACY_STORAGE_KEY = "premo-profile-data";
-
-function storageKey(businessId: string) {
-  return `premo-profile-data:${businessId}`;
-}
-
 /** Fills in any missing/partial fields of a loaded profile with this business's defaults. */
 function mergeWithDefaults(defaults: ProfileData, parsed: Partial<ProfileData>): ProfileData {
   return {
@@ -221,35 +215,10 @@ function mergeWithDefaults(defaults: ProfileData, parsed: Partial<ProfileData>):
 }
 
 /**
- * Reads a business's profile, scoped by business id. For the pre-existing
- * demo business this also falls back to the old, non-namespaced storage key
- * so data saved before multi-tenant support was added isn't lost.
- */
-export function loadProfileData(businessId: string): ProfileData {
-  const defaults = defaultsFor(businessId);
-  if (typeof window === "undefined") return defaults;
-
-  try {
-    const raw =
-      window.localStorage.getItem(storageKey(businessId)) ??
-      (businessId === DEMO_BUSINESS.id
-        ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
-        : null);
-    if (!raw) return defaults;
-
-    const parsed = JSON.parse(raw) as Partial<ProfileData>;
-    return mergeWithDefaults(defaults, parsed);
-  } catch {
-    return defaults;
-  }
-}
-
-/**
- * Fetches a business's profile from the Profile API (GET /api/profile)
- * instead of localStorage, merging any partial/missing fields with this
- * business's defaults exactly like loadProfileData does. businessId is sent
- * as a query parameter so this call is ready for a per-business Profile API;
- * the route does not yet scope its storage by it.
+ * Fetches a business's profile from the Profile API (GET /api/profile),
+ * scoped by businessId, merging any partial/missing fields with this
+ * business's defaults so a legacy or hand-edited JSON file on disk can never
+ * produce a profile object with missing nested fields downstream.
  */
 export async function fetchProfileData(businessId: string): Promise<ProfileData> {
   const defaults = defaultsFor(businessId);
@@ -258,26 +227,11 @@ export async function fetchProfileData(businessId: string): Promise<ProfileData>
     const res = await fetch(`/api/profile?businessId=${encodeURIComponent(businessId)}`);
     if (!res.ok) return defaults;
 
-    const parsed = (await res.json()) as Partial<ProfileData>;
-    return mergeWithDefaults(defaults, parsed);
+    const parsed: unknown = await res.json();
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return defaults;
+
+    return mergeWithDefaults(defaults, parsed as Partial<ProfileData>);
   } catch {
     return defaults;
-  }
-}
-
-export function saveProfileData(
-  businessId: string,
-  data: ProfileData
-): { success: boolean; error?: string } {
-  if (typeof window === "undefined") return { success: false, error: "Not available on the server." };
-
-  try {
-    window.localStorage.setItem(storageKey(businessId), JSON.stringify(data));
-    return { success: true };
-  } catch {
-    return {
-      success: false,
-      error: "Unable to save — your images may be too large. Try a smaller photo.",
-    };
   }
 }

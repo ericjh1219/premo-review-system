@@ -61,8 +61,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const businessId = searchParams.get("businessId") ?? DEFAULT_BUSINESS_ID;
 
-  const data = await readProfileFile(businessId);
-  return NextResponse.json(data);
+  try {
+    const data = await readProfileFile(businessId);
+    return NextResponse.json(data);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to load profile." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -86,6 +93,13 @@ export async function PUT(request: Request) {
     );
   }
 
-  await writeProfileFile(businessId, body as ProfileData);
-  return NextResponse.json({ success: true });
+  try {
+    await writeProfileFile(businessId, body as ProfileData);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to save profile." },
+      { status: 500 }
+    );
+  }
 }

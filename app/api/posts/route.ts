@@ -64,8 +64,15 @@ export async function GET(request: Request) {
     );
   }
 
-  const posts = await readPostsFile(businessId);
-  return NextResponse.json(posts);
+  try {
+    const posts = await readPostsFile(businessId);
+    return NextResponse.json(posts);
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to load posts." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PUT(request: Request) {
@@ -96,6 +103,13 @@ export async function PUT(request: Request) {
     );
   }
 
-  await writePostsFile(businessId, body as Post[]);
-  return NextResponse.json({ success: true });
+  try {
+    await writePostsFile(businessId, body as Post[]);
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Unable to save posts." },
+      { status: 500 }
+    );
+  }
 }
