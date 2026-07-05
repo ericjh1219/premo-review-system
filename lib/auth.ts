@@ -26,14 +26,8 @@ export function getSession(): Session | null {
 
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
-    const session = raw ? (JSON.parse(raw) as Session) : null;
-    authDebugLog("getSession (only 'auth check' in the app — no middleware, no cookies)", {
-      rawLocalStorageValue: raw,
-      parsedSession: session,
-    });
-    return session;
-  } catch (error) {
-    authDebugLog("getSession threw", { error: (error as Error).message });
+    return raw ? (JSON.parse(raw) as Session) : null;
+  } catch {
     return null;
   }
 }
@@ -41,12 +35,6 @@ export function getSession(): Session | null {
 function setSession(session: Session) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  // No JWT and no cookie exist in this app — session is a plain localStorage
-  // record, so this write is the entire "session created" step.
-  authDebugLog("setSession (localStorage write, no cookie/JWT exist)", {
-    session,
-    readBackImmediately: window.localStorage.getItem(SESSION_KEY),
-  });
 }
 
 export function logout() {
@@ -64,62 +52,45 @@ export type LoginResult = { success: true } | { success: false; error: string };
  * the public share page.
  */
 export async function login(email: string, password: string): Promise<LoginResult> {
-  // There is no HTTP request here — login() is called directly from
-  // app/login/page.tsx's onSubmit handler. "request method"/"content-type"/
-  // "parsed request body" don't exist as separate things; logged below as
-  // their nearest real equivalents so nothing from the requested list is
-  // silently dropped.
-  authDebugLog("login() invoked (direct function call — no HTTP request exists)", {
-    requestMethod: "n/a — no HTTP request, this is a plain function call",
-    contentType: "n/a — no HTTP request",
-    parsedRequestBody: { email, passwordLength: password.length },
-    emailReceived: email,
-    passwordLength: password.length,
-    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
-    localStorageAvailable: (() => {
-      try {
-        if (typeof window === "undefined") return false;
-        window.localStorage.setItem("__auth_debug_probe__", "1");
-        window.localStorage.removeItem("__auth_debug_probe__");
-        return true;
-      } catch (error) {
-        return `blocked: ${(error as Error).message}`;
-      }
-    })(),
-  });
+  authDebugLog("STEP 1: email received", { email });
 
   const admin = findAdminByEmail(email);
-  const userFound = Boolean(admin);
-  const passwordVerified = admin ? await verifyAdminPassword(admin, password) : false;
+  authDebugLog("STEP 2: findAdminByEmail() result", { result: admin ? "found" : "null" });
 
-  authDebugLog("login() authentication check", {
-    emailReceived: email,
-    passwordLength: password.length,
-    userFound,
-    passwordVerified,
-  });
-
-  if (!userFound || !passwordVerified) {
-    const result: LoginResult = { success: false, error: "Incorrect email or password." };
-    authDebugLog("login() BRANCH: userFound-or-password-check failed -> Incorrect email or password", {
-      branch: "USER_NOT_FOUND_OR_PASSWORD_INVALID",
-      userFound,
-      passwordVerified,
-      result,
-    });
-    return result;
-  }
-  if (admin!.status === "inactive") {
-    const result: LoginResult = { success: false, error: "This account has been deactivated." };
-    authDebugLog("login() BRANCH: account inactive", { branch: "ACCOUNT_INACTIVE", result });
-    return result;
+  if (!admin) {
+    authDebugLog("RETURN", { value: "USER_NOT_FOUND" });
+    return { success: false, error: "Incorrect email or password." };
   }
 
-  recordAdminLogin(admin!.id);
-  setSession({ adminId: admin!.id });
-  const result: LoginResult = { success: true };
-  authDebugLog("login() BRANCH: success", { branch: "SUCCESS", result });
-  return result;
+  const passwordValid = await verifyAdminPassword(admin, password);
+  authDebugLog("STEP 3: verifyPassword() result", { result: passwordValid });
+
+  if (!passwordValid) {
+    authDebugLog("RETURN", { value: "PASSWORD_INVALID" });
+    return { success: false, error: "Incorrect email or password." };
+  }
+
+  const accountActive = admin.status !== "inactive";
+  authDebugLog("STEP 4: account active?", { status: admin.status, accountActive });
+
+  if (!accountActive) {
+    authDebugLog("RETURN", { value: "ACCOUNT_INACTIVE" });
+    return { success: false, error: "This account has been deactivated." };
+  }
+
+  recordAdminLogin(admin.id);
+
+  authDebugLog("STEP 5: setSession()", { adminId: admin.id });
+  setSession({ adminId: admin.id });
+
+  // login() itself never redirects — app/login/page.tsx's onSubmit calls
+  // router.push("/admin") only after this function resolves with
+  // success:true. Logging that explicitly rather than fabricating a
+  // redirect step inside this function.
+  authDebugLog("STEP 6: redirect() — not performed here; caller (app/login/page.tsx) redirects on success:true", {});
+
+  authDebugLog("RETURN", { value: "SUCCESS" });
+  return { success: true };
 }
 
 /** Resolves the signed-in admin, or null if no session exists. */

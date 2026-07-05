@@ -3,7 +3,6 @@ import { promises as fs } from "fs";
 import path from "path";
 import { DEMO_BUSINESS } from "@/lib/business";
 import { DEFAULT_PROFILE_DATA, type ProfileData } from "@/lib/profile-storage";
-import { authDebugLog } from "@/lib/debug-log";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const BUSINESSES_DIR = path.join(DATA_DIR, "businesses");
@@ -62,24 +61,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const businessId = searchParams.get("businessId") ?? DEFAULT_BUSINESS_ID;
 
-  // This route has no authenticated-user concept today — it's a plain
-  // businessId-scoped read, no session/cookie check. Logging exactly what
-  // arrives so "authenticated user" isn't silently fabricated.
-  authDebugLog("GET /api/profile request received", {
-    businessId,
-    incomingCookieHeader: request.headers.get("cookie"),
-    userAgent: request.headers.get("user-agent"),
-  });
-
   try {
     const data = await readProfileFile(businessId);
-    authDebugLog("GET /api/profile responding 200", { businessId });
     return NextResponse.json(data);
-  } catch (error) {
-    authDebugLog("GET /api/profile responding 500", {
-      businessId,
-      error: (error as Error).message,
-    });
+  } catch {
     return NextResponse.json(
       { success: false, error: "Unable to load profile." },
       { status: 500 }
