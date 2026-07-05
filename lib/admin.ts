@@ -20,14 +20,15 @@ const STORAGE_KEY = "premo-admins";
 /**
  * The one internal PREMO account this system ships with. There is no signup
  * flow, so this is the account used to log into the dashboard until more
- * admins are created. Password is "premo123", pre-hashed so no plaintext
- * password ever appears in this codebase.
+ * admins are created (and until a proper Account Settings module lets this
+ * admin change their own email/password post-launch). Pre-hashed so no
+ * plaintext password ever appears in this codebase.
  */
 const DEFAULT_ADMIN: AdminUser = {
   id: "admin-premo-default",
-  name: "Premo Admin",
-  email: "contact@premostudio.com",
-  password: "demo-seed-salt-admin:36c0773433130c17aec3de67c72b647ab715b0bfa0705d61ba39061668d4fd54",
+  name: "PREMO Studio",
+  email: "admin@review.premostudio.my",
+  password: "premo-launch-salt-admin:f8179a76946ff02fab0fb779a677c3741ef4da5b5fa6e616340792ecfc9a8c8e",
   role: "Admin",
   status: "active",
   lastLoginAt: null,
