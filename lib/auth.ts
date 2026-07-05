@@ -11,6 +11,7 @@ import {
   verifyAdminPassword,
   type AdminUser,
 } from "@/lib/admin";
+import { authDebugLog } from "@/lib/debug-log";
 
 export type Session = {
   adminId: string;
@@ -25,8 +26,14 @@ export function getSession(): Session | null {
 
   try {
     const raw = window.localStorage.getItem(SESSION_KEY);
-    return raw ? (JSON.parse(raw) as Session) : null;
-  } catch {
+    const session = raw ? (JSON.parse(raw) as Session) : null;
+    authDebugLog("getSession (only 'auth check' in the app — no middleware, no cookies)", {
+      rawLocalStorageValue: raw,
+      parsedSession: session,
+    });
+    return session;
+  } catch (error) {
+    authDebugLog("getSession threw", { error: (error as Error).message });
     return null;
   }
 }
@@ -34,6 +41,12 @@ export function getSession(): Session | null {
 function setSession(session: Session) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  // No JWT and no cookie exist in this app — session is a plain localStorage
+  // record, so this write is the entire "session created" step.
+  authDebugLog("setSession (localStorage write, no cookie/JWT exist)", {
+    session,
+    readBackImmediately: window.localStorage.getItem(SESSION_KEY),
+  });
 }
 
 export function logout() {
@@ -51,17 +64,38 @@ export type LoginResult = { success: true } | { success: false; error: string };
  * the public share page.
  */
 export async function login(email: string, password: string): Promise<LoginResult> {
+  authDebugLog("login() called", {
+    emailAttempted: email,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+    localStorageAvailable: (() => {
+      try {
+        if (typeof window === "undefined") return false;
+        window.localStorage.setItem("__auth_debug_probe__", "1");
+        window.localStorage.removeItem("__auth_debug_probe__");
+        return true;
+      } catch (error) {
+        return `blocked: ${(error as Error).message}`;
+      }
+    })(),
+  });
+
   const admin = findAdminByEmail(email);
   if (!admin || !(await verifyAdminPassword(admin, password))) {
-    return { success: false, error: "Incorrect email or password." };
+    const result: LoginResult = { success: false, error: "Incorrect email or password." };
+    authDebugLog("login() result", result);
+    return result;
   }
   if (admin.status === "inactive") {
-    return { success: false, error: "This account has been deactivated." };
+    const result: LoginResult = { success: false, error: "This account has been deactivated." };
+    authDebugLog("login() result", result);
+    return result;
   }
 
   recordAdminLogin(admin.id);
   setSession({ adminId: admin.id });
-  return { success: true };
+  const result: LoginResult = { success: true };
+  authDebugLog("login() result", result);
+  return result;
 }
 
 /** Resolves the signed-in admin, or null if no session exists. */

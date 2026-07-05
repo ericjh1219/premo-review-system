@@ -1,4 +1,5 @@
 import { hashPassword, isHashedPassword, verifyPassword } from "@/lib/password";
+import { authDebugLog } from "@/lib/debug-log";
 
 export type AdminRole = "Admin" | "Staff";
 export type AdminStatus = "active" | "inactive";
@@ -92,7 +93,14 @@ export function getAdminById(id: string): AdminUser | undefined {
 
 export function findAdminByEmail(email: string): AdminUser | undefined {
   const normalized = email.trim().toLowerCase();
-  return readAdmins().find((admin) => admin.email.trim().toLowerCase() === normalized);
+  const all = readAdmins();
+  const found = all.find((admin) => admin.email.trim().toLowerCase() === normalized);
+  authDebugLog("findAdminByEmail", {
+    emailAttempted: normalized,
+    storedEmails: all.map((admin) => admin.email),
+    found: found ? { id: found.id, email: found.email, status: found.status } : null,
+  });
+  return found;
 }
 
 /**
@@ -105,11 +113,22 @@ export function findAdminByEmail(email: string): AdminUser | undefined {
  */
 export async function verifyAdminPassword(admin: AdminUser, password: string): Promise<boolean> {
   if (!isHashedPassword(admin.password)) {
-    if (admin.password !== password) return false;
+    const legacyMatch = admin.password === password;
+    authDebugLog("verifyAdminPassword (legacy plaintext path)", {
+      adminId: admin.id,
+      legacyMatch,
+    });
+    if (!legacyMatch) return false;
     await migrateLegacyPassword(admin.id, password);
     return true;
   }
-  return verifyPassword(password, admin.password);
+  const result = await verifyPassword(password, admin.password);
+  authDebugLog("verifyAdminPassword (hashed path)", {
+    adminId: admin.id,
+    storedPasswordFormat: admin.password.split(":")[0],
+    passwordVerified: result,
+  });
+  return result;
 }
 
 async function migrateLegacyPassword(id: string, password: string) {
