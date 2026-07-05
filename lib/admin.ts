@@ -35,12 +35,40 @@ const DEFAULT_ADMIN: AdminUser = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
+/**
+ * The exact seed values DEFAULT_ADMIN used to have, before its email/password
+ * were rotated for launch. Auth has no server/database — every browser seeds
+ * its own copy of DEFAULT_ADMIN into localStorage the first time it loads
+ * the app, so a device that had already visited before the rotation is stuck
+ * with this old record forever unless it's migrated forward here. Matching
+ * on the *exact* old email+hash (not just "differs from current") means this
+ * can only ever catch that stale seed — never an admin's own deliberate
+ * password change, which would produce a different hash.
+ */
+const PRE_LAUNCH_SEED_ADMIN: Pick<AdminUser, "email" | "password"> = {
+  email: "contact@premostudio.com",
+  password: "demo-seed-salt-admin:36c0773433130c17aec3de67c72b647ab715b0bfa0705d61ba39061668d4fd54",
+};
+
+function migrateStaleDefaultAdmin(admins: AdminUser[]): AdminUser[] {
+  const isStaleSeed = (admin: AdminUser) =>
+    admin.id === DEFAULT_ADMIN.id &&
+    admin.email === PRE_LAUNCH_SEED_ADMIN.email &&
+    admin.password === PRE_LAUNCH_SEED_ADMIN.password;
+
+  if (!admins.some(isStaleSeed)) return admins;
+
+  const migrated = admins.map((admin) => (isStaleSeed(admin) ? DEFAULT_ADMIN : admin));
+  writeAdmins(migrated);
+  return migrated;
+}
+
 function readAdmins(): AdminUser[] {
   if (typeof window === "undefined") return [DEFAULT_ADMIN];
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as AdminUser[];
+    if (raw) return migrateStaleDefaultAdmin(JSON.parse(raw) as AdminUser[]);
 
     writeAdmins([DEFAULT_ADMIN]);
     return [DEFAULT_ADMIN];
