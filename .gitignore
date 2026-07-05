@@ -39,6 +39,22 @@ yarn-error.log*
 # claude code (local-only permissions, not shared config)
 .claude/settings.local.json
 
+# runtime data (generated automatically by the Profile API)
+/data/profile.json
+/data/businesses/
+
+# runtime data (generated automatically by the Posts API)
+/data/posts.json
+
+# runtime data (generated automatically by the Review Categories API)
+/data/review-categories.json
+
+# runtime data (generated automatically by the Businesses API)
+/data/businesses.json
+
+# uploaded files (generated automatically by the Upload API)
+/public/uploads/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -60,13 +60,22 @@ export default function PostsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setPosts(loadPosts(businessId));
-    setPostsLoaded(true);
+    let cancelled = false;
+
+    loadPosts(businessId).then((loaded) => {
+      if (cancelled) return;
+      setPosts(loaded);
+      setPostsLoaded(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [businessId]);
 
   useEffect(() => {
     if (!postsLoaded) return;
-    savePosts(businessId, posts);
+    void savePosts(businessId, posts);
   }, [businessId, postsLoaded, posts]);
 
   const filteredPosts = useMemo(() => {
@@ -137,8 +146,8 @@ export default function PostsPage() {
     setCreateOpen(true);
   }
 
-  function handleOpenCreate() {
-    const business = getBusinessById(businessId);
+  async function handleOpenCreate() {
+    const business = await getBusinessById(businessId);
     const gate = business ? canPerformCreateAction(business) : { allowed: true as const };
     if (!gate.allowed) {
       setToastMessage(gate.message);

@@ -10,9 +10,11 @@ import { WifiDialog } from "@/components/share-page/wifi-dialog";
 import { Toast } from "@/components/link-generator/toast";
 import { getBusinessById } from "@/lib/business";
 import { loadLuckyDrawSettings } from "@/lib/lucky-draw-settings";
-import { loadProfileData, type PlatformKey } from "@/lib/profile-storage";
+import type { Post } from "@/lib/mock-data";
+import { loadPosts } from "@/lib/post-storage";
+import { DEFAULT_PROFILE_DATA, fetchProfileData, type PlatformKey } from "@/lib/profile-storage";
 import { listCategories, type GoogleReviewCategory } from "@/lib/review-categories";
-import { getReviewTemplates, type ReviewTemplate } from "@/lib/review-templates";
+import { filterReviewTemplates, type ReviewTemplate } from "@/lib/review-templates";
 import { canUseLuckyDraw } from "@/lib/subscription";
 import { trackingService } from "@/lib/tracking-service";
 
@@ -45,15 +47,11 @@ export default function CustomerSharePage({
 }) {
   const { business: businessId } = use(params);
 
-  const [profile, setProfile] = useState(() => loadProfileData(businessId));
-  const [luckyDrawAllowed] = useState(() => {
-    const business = getBusinessById(businessId);
-    return business ? canUseLuckyDraw(business).allowed : false;
-  });
+  const [profile, setProfile] = useState(DEFAULT_PROFILE_DATA);
+  const [luckyDrawAllowed, setLuckyDrawAllowed] = useState(false);
   const [luckyDraw] = useState(() => loadLuckyDrawSettings(businessId));
-  const [categories, setCategories] = useState<GoogleReviewCategory[]>(() =>
-    listCategories(businessId)
-  );
+  const [categories, setCategories] = useState<GoogleReviewCategory[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [wifiOpen, setWifiOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -65,17 +63,47 @@ export default function CustomerSharePage({
   }>({ open: false, platform: "", templates: [], link: "" });
 
   useEffect(() => {
-    setProfile(loadProfileData(businessId));
-    setCategories(listCategories(businessId));
+    let cancelled = false;
+
+    function loadProfile() {
+      fetchProfileData(businessId).then((loaded) => {
+        if (!cancelled) setProfile(loaded);
+      });
+    }
+
+    function loadPostsData() {
+      loadPosts(businessId).then((loaded) => {
+        if (!cancelled) setPosts(loaded);
+      });
+    }
+
+    function loadCategoriesData() {
+      listCategories(businessId).then((loaded) => {
+        if (!cancelled) setCategories(loaded);
+      });
+    }
+
+    function loadLuckyDrawAllowed() {
+      getBusinessById(businessId).then((business) => {
+        if (!cancelled) setLuckyDrawAllowed(business ? canUseLuckyDraw(business).allowed : false);
+      });
+    }
+
+    loadProfile();
+    loadCategoriesData();
+    loadPostsData();
+    loadLuckyDrawAllowed();
     trackingService.recordEvent(businessId, "Page Entry", "View");
 
     function refresh() {
-      setProfile(loadProfileData(businessId));
-      setCategories(listCategories(businessId));
+      loadProfile();
+      loadCategoriesData();
+      loadPostsData();
     }
     window.addEventListener("storage", refresh);
     window.addEventListener("focus", refresh);
     return () => {
+      cancelled = true;
       window.removeEventListener("storage", refresh);
       window.removeEventListener("focus", refresh);
     };
@@ -128,7 +156,7 @@ export default function CustomerSharePage({
    * store review text themselves).
    */
   function resolveTemplates(shareName: string, categoryId?: string | null): ReviewTemplate[] {
-    return getReviewTemplates(businessId, shareName, categoryId);
+    return filterReviewTemplates(posts, shareName, categoryId);
   }
 
   /** Whether tapping this platform's share button offers more than one thing to pick from. */

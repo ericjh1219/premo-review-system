@@ -8,13 +8,10 @@ import { BottomNav } from "@/components/link-generator/bottom-nav";
 import { Toast } from "@/components/link-generator/toast";
 import { ImageUploadField } from "@/components/link-generator/profile/image-upload-field";
 import { ToggleRow } from "@/components/link-generator/profile/toggle-row";
-import { resolveBusinessId } from "@/lib/auth";
 import {
   DEFAULT_PROFILE_DATA,
   PLATFORM_LABELS,
   PLATFORM_ORDER,
-  loadProfileData,
-  saveProfileData,
   type MaxRefreshOption,
   type ProfileData,
 } from "@/lib/profile-storage";
@@ -40,8 +37,51 @@ export default function ProfilePage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setData(loadProfileData(resolveBusinessId()));
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch("/api/profile");
+        if (!res.ok) throw new Error("Failed to load profile");
+        const json = (await res.json()) as ProfileData;
+        if (!cancelled) setData(json);
+      } catch {
+        if (!cancelled) setToastMessage("Unable to load profile.");
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  /**
+   * ImageUploadField already resizes/re-encodes the picked file into a data
+   * URL for local preview; this turns that data URL back into a Blob so it
+   * can be sent to the Upload API and swapped for a served /uploads/* URL
+   * instead of persisting Base64 into the profile.
+   */
+  async function uploadImageAndGetUrl(dataUrl: string): Promise<string | null> {
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const formData = new FormData();
+      formData.append("file", blob, "upload.jpg");
+
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const result = (await res.json()) as { success: boolean; url?: string; error?: string };
+
+      if (!result.success || !result.url) {
+        setToastMessage(result.error ?? "Image upload failed.");
+        return null;
+      }
+
+      return result.url;
+    } catch {
+      setToastMessage("Image upload failed.");
+      return null;
+    }
+  }
 
   function updateBusiness<K extends keyof ProfileData["business"]>(
     key: K,
@@ -139,9 +179,20 @@ export default function ProfilePage() {
     }));
   }
 
-  function handleSave() {
-    const result = saveProfileData(resolveBusinessId(), data);
-    setToastMessage(result.success ? "Profile saved successfully." : (result.error ?? "Unable to save profile."));
+  async function handleSave() {
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = (await res.json()) as { success: boolean; error?: string };
+      setToastMessage(
+        result.success ? "Profile saved successfully." : (result.error ?? "Unable to save profile.")
+      );
+    } catch {
+      setToastMessage("Unable to save profile.");
+    }
   }
 
   const languageSelectedCount = Number(data.languagePreference.english) + Number(data.languagePreference.chinese);
@@ -173,7 +224,10 @@ export default function ProfilePage() {
           <ImageUploadField
             label="Profile Image"
             image={data.profileImage}
-            onChange={(dataUrl) => setData((prev) => ({ ...prev, profileImage: dataUrl }))}
+            onChange={async (dataUrl) => {
+              const url = await uploadImageAndGetUrl(dataUrl);
+              if (url) setData((prev) => ({ ...prev, profileImage: url }));
+            }}
             className="bg-gradient-to-br from-[#e0777d] to-[#c85a63]"
             placeholder={
               <div className="flex size-full items-center justify-center">
@@ -184,7 +238,10 @@ export default function ProfilePage() {
           <ImageUploadField
             label="Background Image"
             image={data.backgroundImage}
-            onChange={(dataUrl) => setData((prev) => ({ ...prev, backgroundImage: dataUrl }))}
+            onChange={async (dataUrl) => {
+              const url = await uploadImageAndGetUrl(dataUrl);
+              if (url) setData((prev) => ({ ...prev, backgroundImage: url }));
+            }}
             className="border-2 border-dashed border-[#d6d3d1] bg-[#f5f5f4]"
             placeholder={
               <div className="flex size-full items-center justify-center">
@@ -309,7 +366,10 @@ export default function ProfilePage() {
             <ImageUploadField
               label="Profile Image"
               image={data.customWebPage.image}
-              onChange={(dataUrl) => updateCustomWebPage("image", dataUrl)}
+              onChange={async (dataUrl) => {
+                const url = await uploadImageAndGetUrl(dataUrl);
+                if (url) updateCustomWebPage("image", url);
+              }}
               className="mx-auto size-32 border-2 border-dashed border-[#d6d3d1] bg-[#f5f5f4]"
               placeholder={
                 <div className="flex size-full items-center justify-center">

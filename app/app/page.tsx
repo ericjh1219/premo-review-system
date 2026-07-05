@@ -12,12 +12,13 @@ import { resolveBusinessId } from "@/lib/auth";
 import { getBusinessById, getEffectiveSubscriptionStatus, type Business } from "@/lib/business";
 import { getSubscriptionPlan } from "@/lib/subscription-plans";
 import {
-  DEFAULT_LINK_GENERATOR_DATA,
+  getDefaultLinkGeneratorData,
   loadLinkGeneratorData,
   saveLinkGeneratorData,
   type LinkGeneratorData,
 } from "@/lib/link-generator-storage";
 import { DEFAULT_PROFILE_DATA, loadProfileData, type ProfileData } from "@/lib/profile-storage";
+import { isDevelopmentAppUrl } from "@/lib/app-url";
 
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -28,18 +29,20 @@ function formatShortDate(value: string) {
 }
 
 export default function LinkGeneratorPage() {
-  const [links, setLinks] = useState<LinkGeneratorData>(DEFAULT_LINK_GENERATOR_DATA);
+  const [businessId] = useState(resolveBusinessId);
+  const [links, setLinks] = useState<LinkGeneratorData>(() =>
+    getDefaultLinkGeneratorData(businessId)
+  );
   const [locked, setLocked] = useState({ staticPageLink: true, xhsShareLink: true });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
   const [business, setBusiness] = useState<Business | undefined>(undefined);
 
   useEffect(() => {
-    const businessId = resolveBusinessId();
     setLinks(loadLinkGeneratorData(businessId));
     setProfile(loadProfileData(businessId));
-    setBusiness(getBusinessById(businessId));
-  }, []);
+    getBusinessById(businessId).then(setBusiness);
+  }, [businessId]);
 
   const plan = business ? getSubscriptionPlan(business.subscription.plan) : null;
   const subscriptionStatus = business ? getEffectiveSubscriptionStatus(business) : "trial";
@@ -54,7 +57,6 @@ export default function LinkGeneratorPage() {
 
       if (nextLocked) {
         setLinks((currentLinks) => {
-          const businessId = resolveBusinessId();
           const persisted = loadLinkGeneratorData(businessId);
           saveLinkGeneratorData(businessId, { ...persisted, [key]: currentLinks[key] });
           return currentLinks;
@@ -100,6 +102,7 @@ export default function LinkGeneratorPage() {
             label="Static Page Link"
             value={links.staticPageLink}
             locked={locked.staticPageLink}
+            isDevelopmentUrl={isDevelopmentAppUrl()}
             onToggleLock={() => handleToggleLock("staticPageLink")}
             onChange={(value) => handleChange("staticPageLink", value)}
             onCopy={() => handleCopy(links.staticPageLink)}
@@ -108,6 +111,7 @@ export default function LinkGeneratorPage() {
             label="XHS Share Link"
             value={links.xhsShareLink}
             locked={locked.xhsShareLink}
+            isDevelopmentUrl={isDevelopmentAppUrl()}
             onToggleLock={() => handleToggleLock("xhsShareLink")}
             onChange={(value) => handleChange("xhsShareLink", value)}
             onCopy={() => handleCopy(links.xhsShareLink)}

@@ -84,7 +84,7 @@ export function TopNav({ onMenuClick }: TopNavProps) {
                 <div className="flex flex-col">
                   <span className="text-sm font-medium">{admin?.name ?? "Admin User"}</span>
                   <span className="text-xs font-normal text-muted-foreground">
-                    {admin?.email ?? "admin@premo.io"}
+                    {admin?.email ?? ""}
                   </span>
                 </div>
               </DropdownMenuLabel>

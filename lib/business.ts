@@ -30,7 +30,6 @@ export type Business = {
   subscription: Subscription;
 };
 
-const REGISTRY_KEY = "premo-businesses";
 const CURRENT_BUSINESS_KEY = "premo-current-business-id";
 
 function defaultSubscription(): Subscription {
@@ -126,40 +125,47 @@ function normalize(business: Partial<Business> & { id: string; name: string }): 
   };
 }
 
-function readRegistry(): Business[] {
-  if (typeof window === "undefined") return [DEMO_BUSINESS];
-
+/**
+ * Reads the full business registry from the Businesses API, normalizing
+ * every entry exactly as the previous localStorage-backed readRegistry()
+ * did. Falls back to [DEMO_BUSINESS] if the registry is empty or the
+ * request fails, matching the old behavior.
+ */
+async function fetchRegistry(): Promise<Business[]> {
   try {
-    const raw = window.localStorage.getItem(REGISTRY_KEY);
-    if (!raw) return [DEMO_BUSINESS];
+    const res = await fetch("/api/businesses");
+    if (!res.ok) return [DEMO_BUSINESS];
 
-    const parsed = JSON.parse(raw) as Business[];
+    const parsed = (await res.json()) as Business[];
     return parsed.length > 0 ? parsed.map(normalize) : [DEMO_BUSINESS];
   } catch {
     return [DEMO_BUSINESS];
   }
 }
 
-function writeRegistry(businesses: Business[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(REGISTRY_KEY, JSON.stringify(businesses));
+async function writeRegistry(businesses: Business[]): Promise<void> {
+  await fetch("/api/businesses", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(businesses),
+  });
 }
 
-export function listBusinesses(): Business[] {
-  return readRegistry();
+export async function listBusinesses(): Promise<Business[]> {
+  return fetchRegistry();
 }
 
-export function getBusinessById(id: string): Business | undefined {
-  return readRegistry().find((business) => business.id === id);
+export async function getBusinessById(id: string): Promise<Business | undefined> {
+  return (await fetchRegistry()).find((business) => business.id === id);
 }
 
-export function createBusiness(input: {
+export async function createBusiness(input: {
   id: string;
   name: string;
   contactName: string;
   email: string;
-}): Business {
-  const registry = readRegistry();
+}): Promise<Business> {
+  const registry = await fetchRegistry();
   if (registry.some((existing) => existing.id === input.id)) {
     throw new Error(`A business with id "${input.id}" already exists.`);
   }
@@ -174,15 +180,15 @@ export function createBusiness(input: {
     subscription: defaultSubscription(),
   };
 
-  writeRegistry([...registry, business]);
+  await writeRegistry([...registry, business]);
   return business;
 }
 
-export function updateBusiness(
+export async function updateBusiness(
   id: string,
   updates: Partial<Pick<Business, "name" | "contactName" | "email" | "status">>
-): Business | undefined {
-  const registry = readRegistry();
+): Promise<Business | undefined> {
+  const registry = await fetchRegistry();
   let updated: Business | undefined;
 
   const next = registry.map((business) => {
@@ -191,19 +197,22 @@ export function updateBusiness(
     return updated;
   });
 
-  if (updated) writeRegistry(next);
+  if (updated) await writeRegistry(next);
   return updated;
 }
 
-export function setBusinessStatus(id: string, status: BusinessStatus): Business | undefined {
+export async function setBusinessStatus(
+  id: string,
+  status: BusinessStatus
+): Promise<Business | undefined> {
   return updateBusiness(id, { status });
 }
 
-export function updateBusinessSubscription(
+export async function updateBusinessSubscription(
   id: string,
   updates: Partial<Subscription>
-): Business | undefined {
-  const registry = readRegistry();
+): Promise<Business | undefined> {
+  const registry = await fetchRegistry();
   let updated: Business | undefined;
 
   const next = registry.map((business) => {
@@ -219,7 +228,7 @@ export function updateBusinessSubscription(
     return updated;
   });
 
-  if (updated) writeRegistry(next);
+  if (updated) await writeRegistry(next);
   return updated;
 }
 
@@ -236,8 +245,9 @@ export function getEffectiveSubscriptionStatus(business: Business): Subscription
   return business.subscription.status;
 }
 
-export function deleteBusiness(id: string) {
-  writeRegistry(readRegistry().filter((business) => business.id !== id));
+export async function deleteBusiness(id: string): Promise<void> {
+  const registry = await fetchRegistry();
+  await writeRegistry(registry.filter((business) => business.id !== id));
 }
 
 /**

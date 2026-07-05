@@ -47,7 +47,7 @@ export default function SubscriptionPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setBusiness(getBusinessById(businessId));
+    getBusinessById(businessId).then(setBusiness);
     setBranches(listBranches(businessId));
   }, [businessId]);
 

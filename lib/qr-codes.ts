@@ -1,4 +1,5 @@
 import type { ProfileData } from "@/lib/profile-storage";
+import { buildShareUrl } from "@/lib/app-url";
 
 export type QrCodeEntry = {
   id: string;
@@ -15,11 +16,7 @@ export type QrCodeEntry = {
  * social usernames, WiFi, custom website) is reflected the next time this
  * is called — there is nothing else to keep in sync.
  */
-export function buildQrCodeEntries(
-  businessId: string,
-  profile: ProfileData,
-  origin: string
-): QrCodeEntry[] {
+export function buildQrCodeEntries(businessId: string, profile: ProfileData): QrCodeEntry[] {
   const { business, wifi, customWebPage } = profile;
 
   return [
@@ -27,7 +24,7 @@ export function buildQrCodeEntries(
       id: "share-page",
       label: "Share Page",
       platform: "Share Page",
-      value: origin ? `${origin}/share/${businessId}` : "",
+      value: buildShareUrl(businessId),
     },
     {
       id: "google-review",

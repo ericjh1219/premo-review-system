@@ -44,11 +44,19 @@ export default function GoogleReviewCategoriesPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    setCategories(listCategories(businessId));
+    let cancelled = false;
+
+    listCategories(businessId).then((loaded) => {
+      if (!cancelled) setCategories(loaded);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [businessId]);
 
-  function openCreate() {
-    const business = getBusinessById(businessId);
+  async function openCreate() {
+    const business = await getBusinessById(businessId);
     const gate = business ? canPerformCreateAction(business) : { allowed: true as const };
     if (!gate.allowed) {
       setToastMessage(gate.message);
@@ -59,14 +67,14 @@ export default function GoogleReviewCategoriesPage() {
     setCreateOpen(true);
   }
 
-  function handleCreate() {
+  async function handleCreate() {
     const name = newCategoryName.trim();
     if (!name) {
       setCreateError("Category name is required.");
       return;
     }
-    createCategory(businessId, name);
-    setCategories(listCategories(businessId));
+    await createCategory(businessId, name);
+    setCategories(await listCategories(businessId));
     setCreateOpen(false);
   }
 
@@ -84,27 +92,27 @@ export default function GoogleReviewCategoriesPage() {
     }
   }
 
-  function handleConfirmRename() {
+  async function handleConfirmRename() {
     if (!renameTarget) return;
     const name = renameValue.trim();
     if (!name) {
       setRenameError("Category name is required.");
       return;
     }
-    renameCategory(businessId, renameTarget.id, name);
-    setCategories(listCategories(businessId));
+    await renameCategory(businessId, renameTarget.id, name);
+    setCategories(await listCategories(businessId));
     setRenameTarget(null);
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!deleteTarget) return;
-    deleteCategory(businessId, deleteTarget.id);
-    setCategories(listCategories(businessId));
+    await deleteCategory(businessId, deleteTarget.id);
+    setCategories(await listCategories(businessId));
     setDeleteTarget(null);
   }
 
-  function handleMove(categoryId: string, direction: "up" | "down") {
-    setCategories(moveCategory(businessId, categoryId, direction));
+  async function handleMove(categoryId: string, direction: "up" | "down") {
+    setCategories(await moveCategory(businessId, categoryId, direction));
   }
 
   return (

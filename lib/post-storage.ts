@@ -1,25 +1,29 @@
 import type { Post } from "@/lib/mock-data";
 
-function storageKey(businessId: string) {
-  return `premo-posts:${businessId}`;
-}
-
 /**
- * Loads a business's posts, scoped by business id. Every business starts
- * with an empty content library — there is no shared demo/seed data.
+ * Loads a business's posts, scoped by business id, from the Posts API.
+ * Every business starts with an empty content library — there is no shared
+ * demo/seed data.
  */
-export function loadPosts(businessId: string): Post[] {
-  if (typeof window === "undefined") return [];
-
+export async function loadPosts(businessId: string): Promise<Post[]> {
   try {
-    const raw = window.localStorage.getItem(storageKey(businessId));
-    return raw ? (JSON.parse(raw) as Post[]) : [];
+    const res = await fetch(`/api/posts?businessId=${encodeURIComponent(businessId)}`);
+    if (!res.ok) return [];
+    return (await res.json()) as Post[];
   } catch {
     return [];
   }
 }
 
-export function savePosts(businessId: string, posts: Post[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(businessId), JSON.stringify(posts));
+export async function savePosts(businessId: string, posts: Post[]): Promise<void> {
+  try {
+    await fetch(`/api/posts?businessId=${encodeURIComponent(businessId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(posts),
+    });
+  } catch {
+    // Matches the previous localStorage implementation, which never
+    // surfaced a write failure to the caller either.
+  }
 }

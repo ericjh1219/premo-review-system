@@ -76,7 +76,15 @@ export function CreatePostModal({
 
   useEffect(() => {
     if (!open) return;
-    setCategories(listCategories(businessId));
+    let cancelled = false;
+
+    listCategories(businessId).then((loaded) => {
+      if (!cancelled) setCategories(loaded);
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, businessId]);
 
   const imageInputRef = useRef<HTMLInputElement>(null);

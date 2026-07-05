@@ -12,11 +12,9 @@ import { buildQrCodeEntries } from "@/lib/qr-codes";
 export default function QrCodesPage() {
   const [businessId] = useState(resolveBusinessId);
   const [profile, setProfile] = useState<ProfileData>(DEFAULT_PROFILE_DATA);
-  const [origin, setOrigin] = useState("");
 
   useEffect(() => {
     setProfile(loadProfileData(businessId));
-    setOrigin(window.location.origin);
 
     function refresh() {
       setProfile(loadProfileData(businessId));
@@ -29,7 +27,7 @@ export default function QrCodesPage() {
     };
   }, [businessId]);
 
-  const entries = buildQrCodeEntries(businessId, profile, origin);
+  const entries = buildQrCodeEntries(businessId, profile);
 
   return (
     <div className="min-h-screen bg-[#eef2ff] pb-28">

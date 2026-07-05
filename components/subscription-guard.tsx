@@ -33,15 +33,16 @@ export function SubscriptionGuard({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const business = getBusinessById(resolveBusinessId());
-    if (!business) {
-      setBypassed(true);
-      setChecked(true);
-      return;
-    }
+    getBusinessById(resolveBusinessId()).then((business) => {
+      if (!business) {
+        setBypassed(true);
+        setChecked(true);
+        return;
+      }
 
-    setStatus(getEffectiveSubscriptionStatus(business));
-    setChecked(true);
+      setStatus(getEffectiveSubscriptionStatus(business));
+      setChecked(true);
+    });
   }, []);
 
   if (!checked) return null;

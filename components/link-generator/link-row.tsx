@@ -9,16 +9,30 @@ type LinkRowProps = {
   label: string;
   value: string;
   locked: boolean;
+  isDevelopmentUrl?: boolean;
   onToggleLock: () => void;
   onChange: (value: string) => void;
   onCopy: () => void;
 };
 
-export function LinkRow({ label, value, locked, onToggleLock, onChange, onCopy }: LinkRowProps) {
+export function LinkRow({
+  label,
+  value,
+  locked,
+  isDevelopmentUrl,
+  onToggleLock,
+  onChange,
+  onCopy,
+}: LinkRowProps) {
   const [showQr, setShowQr] = useState(false);
 
   return (
     <div className="rounded-2xl bg-[#b8e4df] px-4 py-3.5">
+      {isDevelopmentUrl && (
+        <span className="mb-1.5 inline-block rounded-full bg-amber-400/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#1a1a1a]">
+          Development URL
+        </span>
+      )}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-[13px] font-semibold text-[#1a1a1a]">{label}</span>
         <button

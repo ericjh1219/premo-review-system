@@ -191,6 +191,35 @@ function storageKey(businessId: string) {
   return `premo-profile-data:${businessId}`;
 }
 
+/** Fills in any missing/partial fields of a loaded profile with this business's defaults. */
+function mergeWithDefaults(defaults: ProfileData, parsed: Partial<ProfileData>): ProfileData {
+  return {
+    ...defaults,
+    ...parsed,
+    business: { ...defaults.business, ...parsed.business },
+    customWebPage: { ...defaults.customWebPage, ...parsed.customWebPage },
+    wifi: { ...defaults.wifi, ...parsed.wifi },
+    platformBypass: {
+      ...defaults.platformBypass,
+      ...parsed.platformBypass,
+      platforms: {
+        ...defaults.platformBypass.platforms,
+        ...parsed.platformBypass?.platforms,
+      },
+    },
+    buttonConfig: { ...defaults.buttonConfig, ...parsed.buttonConfig },
+    languagePreference: {
+      ...defaults.languagePreference,
+      ...parsed.languagePreference,
+    },
+    platformVisibility: {
+      ...defaults.platformVisibility,
+      ...parsed.platformVisibility,
+    },
+    instructions: { ...defaults.instructions, ...parsed.instructions },
+  };
+}
+
 /**
  * Reads a business's profile, scoped by business id. For the pre-existing
  * demo business this also falls back to the old, non-namespaced storage key
@@ -209,31 +238,28 @@ export function loadProfileData(businessId: string): ProfileData {
     if (!raw) return defaults;
 
     const parsed = JSON.parse(raw) as Partial<ProfileData>;
-    return {
-      ...defaults,
-      ...parsed,
-      business: { ...defaults.business, ...parsed.business },
-      customWebPage: { ...defaults.customWebPage, ...parsed.customWebPage },
-      wifi: { ...defaults.wifi, ...parsed.wifi },
-      platformBypass: {
-        ...defaults.platformBypass,
-        ...parsed.platformBypass,
-        platforms: {
-          ...defaults.platformBypass.platforms,
-          ...parsed.platformBypass?.platforms,
-        },
-      },
-      buttonConfig: { ...defaults.buttonConfig, ...parsed.buttonConfig },
-      languagePreference: {
-        ...defaults.languagePreference,
-        ...parsed.languagePreference,
-      },
-      platformVisibility: {
-        ...defaults.platformVisibility,
-        ...parsed.platformVisibility,
-      },
-      instructions: { ...defaults.instructions, ...parsed.instructions },
-    };
+    return mergeWithDefaults(defaults, parsed);
+  } catch {
+    return defaults;
+  }
+}
+
+/**
+ * Fetches a business's profile from the Profile API (GET /api/profile)
+ * instead of localStorage, merging any partial/missing fields with this
+ * business's defaults exactly like loadProfileData does. businessId is sent
+ * as a query parameter so this call is ready for a per-business Profile API;
+ * the route does not yet scope its storage by it.
+ */
+export async function fetchProfileData(businessId: string): Promise<ProfileData> {
+  const defaults = defaultsFor(businessId);
+
+  try {
+    const res = await fetch(`/api/profile?businessId=${encodeURIComponent(businessId)}`);
+    if (!res.ok) return defaults;
+
+    const parsed = (await res.json()) as Partial<ProfileData>;
+    return mergeWithDefaults(defaults, parsed);
   } catch {
     return defaults;
   }

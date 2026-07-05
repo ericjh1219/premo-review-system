@@ -86,7 +86,7 @@ export default function SettingsPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settingsEmail">Email</Label>
-                <Input id="settingsEmail" type="email" defaultValue="admin@premo.io" />
+                <Input id="settingsEmail" type="email" defaultValue={admin?.email ?? ""} />
               </div>
               <Button size="sm">Save changes</Button>
             </CardContent>

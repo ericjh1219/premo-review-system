@@ -80,14 +80,15 @@ export default function SubscriptionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loaded = listBusinesses();
-    setBusinesses(loaded);
+    listBusinesses().then((loaded) => {
+      setBusinesses(loaded);
 
-    const deepLinkId = searchParams.get("business");
-    if (deepLinkId) {
-      const business = loaded.find((existing) => existing.id === deepLinkId);
-      if (business) openEditForm(business);
-    }
+      const deepLinkId = searchParams.get("business");
+      if (deepLinkId) {
+        const business = loaded.find((existing) => existing.id === deepLinkId);
+        if (business) openEditForm(business);
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -139,7 +140,7 @@ export default function SubscriptionsPage() {
     );
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!editingBusiness || !form) return;
 
     if (!form.startDate || !form.expiryDate) {
@@ -155,7 +156,7 @@ export default function SubscriptionsPage() {
       return;
     }
 
-    const updated = updateBusinessSubscription(editingBusiness.id, {
+    const updated = await updateBusinessSubscription(editingBusiness.id, {
       plan: form.plan,
       startDate: new Date(form.startDate).toISOString(),
       expiryDate: new Date(form.expiryDate).toISOString(),

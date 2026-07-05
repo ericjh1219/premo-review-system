@@ -79,8 +79,8 @@ export function deleteBranch(businessId: string, branchId: string) {
 }
 
 /** Convenience helper for read-only usage displays (e.g. "1 / 1" on the Subscription page). */
-export function getBranchUsage(businessId: string): { used: number; limit: number } {
-  const business = getBusinessById(businessId);
+export async function getBranchUsage(businessId: string): Promise<{ used: number; limit: number }> {
+  const business = await getBusinessById(businessId);
   return {
     used: listBranches(businessId).length,
     limit: business?.subscription.branchLimit ?? 1,

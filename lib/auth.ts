@@ -1,4 +1,9 @@
-import { getBusinessById, getCurrentBusinessId, setCurrentBusinessId } from "@/lib/business";
+import {
+  getBusinessById,
+  getCurrentBusinessId,
+  setCurrentBusinessId,
+  type Business,
+} from "@/lib/business";
 import {
   findAdminByEmail,
   getAdminById,
@@ -94,10 +99,10 @@ export function stopImpersonation() {
 }
 
 /** The business currently being impersonated, if any, resolved to its record. */
-export function getImpersonatedBusiness() {
+export async function getImpersonatedBusiness(): Promise<Business | null> {
   const session = getSession();
   if (!session?.impersonatingBusinessId) return null;
-  return getBusinessById(session.impersonatingBusinessId) ?? null;
+  return (await getBusinessById(session.impersonatingBusinessId)) ?? null;
 }
 
 export function isImpersonating(): boolean {

@@ -5,35 +5,46 @@ export type GoogleReviewCategory = {
   order: number;
 };
 
-function storageKey(businessId: string) {
-  return `premo-google-review-categories:${businessId}`;
-}
-
-/**
- * Loads a business's Google Review Categories, sorted by display order.
- * Every business starts with no categories — there is no shared demo/seed
- * data. Categories only group Google Review posts; the templates themselves
- * always live in Posts (see lib/post-storage.ts), never here.
- */
-export function listCategories(businessId: string): GoogleReviewCategory[] {
-  if (typeof window === "undefined") return [];
-
+async function fetchCategories(businessId: string): Promise<GoogleReviewCategory[]> {
   try {
-    const raw = window.localStorage.getItem(storageKey(businessId));
-    const categories = raw ? (JSON.parse(raw) as GoogleReviewCategory[]) : [];
-    return [...categories].sort((a, b) => a.order - b.order);
+    const res = await fetch(`/api/review-categories?businessId=${encodeURIComponent(businessId)}`);
+    if (!res.ok) return [];
+    return (await res.json()) as GoogleReviewCategory[];
   } catch {
     return [];
   }
 }
 
-function writeCategories(businessId: string, categories: GoogleReviewCategory[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(businessId), JSON.stringify(categories));
+async function writeCategories(businessId: string, categories: GoogleReviewCategory[]): Promise<void> {
+  try {
+    await fetch(`/api/review-categories?businessId=${encodeURIComponent(businessId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(categories),
+    });
+  } catch {
+    // Matches the previous localStorage implementation, which never
+    // surfaced a write failure to the caller either.
+  }
 }
 
-export function createCategory(businessId: string, name: string): GoogleReviewCategory {
-  const categories = listCategories(businessId);
+/**
+ * Loads a business's Google Review Categories, sorted by display order, from
+ * the Review Categories API. Every business starts with no categories —
+ * there is no shared demo/seed data. Categories only group Google Review
+ * posts; the templates themselves always live in Posts (see
+ * lib/post-storage.ts), never here.
+ */
+export async function listCategories(businessId: string): Promise<GoogleReviewCategory[]> {
+  const categories = await fetchCategories(businessId);
+  return [...categories].sort((a, b) => a.order - b.order);
+}
+
+export async function createCategory(
+  businessId: string,
+  name: string
+): Promise<GoogleReviewCategory> {
+  const categories = await listCategories(businessId);
   const nextOrder = categories.reduce((max, category) => Math.max(max, category.order), -1) + 1;
 
   const category: GoogleReviewCategory = {
@@ -43,16 +54,16 @@ export function createCategory(businessId: string, name: string): GoogleReviewCa
     order: nextOrder,
   };
 
-  writeCategories(businessId, [...categories, category]);
+  await writeCategories(businessId, [...categories, category]);
   return category;
 }
 
-export function renameCategory(
+export async function renameCategory(
   businessId: string,
   categoryId: string,
   name: string
-): GoogleReviewCategory | undefined {
-  const categories = listCategories(businessId);
+): Promise<GoogleReviewCategory | undefined> {
+  const categories = await listCategories(businessId);
   let updated: GoogleReviewCategory | undefined;
 
   const next = categories.map((category) => {
@@ -61,14 +72,15 @@ export function renameCategory(
     return updated;
   });
 
-  if (updated) writeCategories(businessId, next);
+  if (updated) await writeCategories(businessId, next);
   return updated;
 }
 
-export function deleteCategory(businessId: string, categoryId: string) {
-  writeCategories(
+export async function deleteCategory(businessId: string, categoryId: string): Promise<void> {
+  const categories = await listCategories(businessId);
+  await writeCategories(
     businessId,
-    listCategories(businessId).filter((category) => category.id !== categoryId)
+    categories.filter((category) => category.id !== categoryId)
   );
 }
 
@@ -76,12 +88,12 @@ export function deleteCategory(businessId: string, categoryId: string) {
  * Swaps this category with its immediate neighbor in display order and
  * renumbers everyone's `order` to stay contiguous afterward.
  */
-export function moveCategory(
+export async function moveCategory(
   businessId: string,
   categoryId: string,
   direction: "up" | "down"
-): GoogleReviewCategory[] {
-  const categories = listCategories(businessId);
+): Promise<GoogleReviewCategory[]> {
+  const categories = await listCategories(businessId);
   const index = categories.findIndex((category) => category.id === categoryId);
   const swapWith = direction === "up" ? index - 1 : index + 1;
 
@@ -91,6 +103,6 @@ export function moveCategory(
   [reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]];
   const renumbered = reordered.map((category, position) => ({ ...category, order: position }));
 
-  writeCategories(businessId, renumbered);
+  await writeCategories(businessId, renumbered);
   return renumbered;
 }

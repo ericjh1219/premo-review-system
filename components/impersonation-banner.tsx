@@ -12,7 +12,7 @@ export function ImpersonationBanner() {
   const [business, setBusiness] = useState<Business | null>(null);
 
   useEffect(() => {
-    setBusiness(getImpersonatedBusiness());
+    getImpersonatedBusiness().then(setBusiness);
   }, []);
 
   if (!business) return null;

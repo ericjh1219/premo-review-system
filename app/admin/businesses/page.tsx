@@ -78,7 +78,7 @@ export default function BusinessesPage() {
   const [deleteTarget, setDeleteTarget] = useState<Business | null>(null);
 
   useEffect(() => {
-    setBusinesses(listBusinesses());
+    listBusinesses().then(setBusinesses);
   }, []);
 
   const filteredBusinesses = useMemo(() => {
@@ -121,7 +121,7 @@ export default function BusinessesPage() {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     const name = form.name.trim();
     const contactName = form.contactName.trim();
     const email = form.email.trim();
@@ -132,7 +132,7 @@ export default function BusinessesPage() {
     }
 
     if (editingId) {
-      const updated = updateBusiness(editingId, { name, contactName, email });
+      const updated = await updateBusiness(editingId, { name, contactName, email });
       if (updated) {
         setBusinesses((current) =>
           current.map((business) => (business.id === editingId ? updated : business))
@@ -152,14 +152,14 @@ export default function BusinessesPage() {
       return;
     }
 
-    const created = createBusiness({ id, name, contactName, email });
+    const created = await createBusiness({ id, name, contactName, email });
     setBusinesses((current) => [...current, created]);
     setFormOpen(false);
   }
 
-  function handleToggleStatus(business: Business) {
+  async function handleToggleStatus(business: Business) {
     const nextStatus = business.status === "active" ? "inactive" : "active";
-    const updated = setBusinessStatus(business.id, nextStatus);
+    const updated = await setBusinessStatus(business.id, nextStatus);
     if (updated) {
       setBusinesses((current) =>
         current.map((existing) => (existing.id === business.id ? updated : existing))
@@ -167,9 +167,9 @@ export default function BusinessesPage() {
     }
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!deleteTarget) return;
-    deleteBusiness(deleteTarget.id);
+    await deleteBusiness(deleteTarget.id);
     setBusinesses((current) => current.filter((business) => business.id !== deleteTarget.id));
     setDeleteTarget(null);
   }

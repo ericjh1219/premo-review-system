@@ -1,14 +1,23 @@
 import { DEMO_BUSINESS } from "@/lib/business";
+import { buildShareUrl } from "@/lib/app-url";
 
 export type LinkGeneratorData = {
   staticPageLink: string;
   xhsShareLink: string;
 };
 
-export const DEFAULT_LINK_GENERATOR_DATA: LinkGeneratorData = {
-  staticPageLink: "https://jshare.link/share/Premo/ZT68/",
-  xhsShareLink: "https://jshare.link/share/Premo/1uXU",
-};
+/**
+ * Default Static Page Link / XHS Share Link values for a business that
+ * hasn't customized them yet — both point at this business's own Share Page
+ * on our own domain, never a third-party link shortener.
+ */
+export function getDefaultLinkGeneratorData(businessId: string): LinkGeneratorData {
+  const shareUrl = buildShareUrl(businessId);
+  return {
+    staticPageLink: shareUrl,
+    xhsShareLink: shareUrl,
+  };
+}
 
 const LEGACY_STORAGE_KEY = "premo-link-generator-data";
 
@@ -17,7 +26,8 @@ function storageKey(businessId: string) {
 }
 
 export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
-  if (typeof window === "undefined") return DEFAULT_LINK_GENERATOR_DATA;
+  const defaults = getDefaultLinkGeneratorData(businessId);
+  if (typeof window === "undefined") return defaults;
 
   try {
     const raw =
@@ -25,12 +35,12 @@ export function loadLinkGeneratorData(businessId: string): LinkGeneratorData {
       (businessId === DEMO_BUSINESS.id
         ? window.localStorage.getItem(LEGACY_STORAGE_KEY)
         : null);
-    if (!raw) return DEFAULT_LINK_GENERATOR_DATA;
+    if (!raw) return defaults;
 
     const parsed = JSON.parse(raw) as Partial<LinkGeneratorData>;
-    return { ...DEFAULT_LINK_GENERATOR_DATA, ...parsed };
+    return { ...defaults, ...parsed };
   } catch {
-    return DEFAULT_LINK_GENERATOR_DATA;
+    return defaults;
   }
 }
 

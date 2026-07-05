@@ -99,7 +99,7 @@ export default function BusinessUsersPage({
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    setBusiness(getBusinessById(businessId));
+    getBusinessById(businessId).then(setBusiness);
     setUsers(listUsers(businessId));
   }, [businessId]);
 
