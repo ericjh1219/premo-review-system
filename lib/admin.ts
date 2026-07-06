@@ -6,7 +6,10 @@ export type AdminStatus = "active" | "inactive";
 export type AdminUser = {
   id: string;
   name: string;
+  /** No longer used for login — kept only for notifications/reference. See loginId. */
   email: string;
+  /** Used to log in — see lib/auth.ts's login(). The seed Super Admin's is literally "admin". */
+  loginId: string;
   /** Always a "salt:hash" string — never the plaintext password. */
   password: string;
   role: AdminRole;
@@ -28,6 +31,7 @@ const DEFAULT_ADMIN: AdminUser = {
   id: "admin-premo-default",
   name: "PREMO Studio",
   email: "admin@review.premostudio.my",
+  loginId: "admin",
   password: "premo-launch-salt-admin:f8179a76946ff02fab0fb779a677c3741ef4da5b5fa6e616340792ecfc9a8c8e",
   role: "Admin",
   status: "active",
@@ -63,12 +67,46 @@ function migrateStaleDefaultAdmin(admins: AdminUser[]): AdminUser[] {
   return migrated;
 }
 
+/**
+ * Backfills loginId for admin records seeded before Login IDs replaced email
+ * as the login credential. The default Super Admin always gets "admin"; any
+ * other pre-existing record (a Staff/Admin created via the Users page before
+ * this migration) gets a sanitized-name fallback, de-duplicated against its
+ * siblings the same way business Login IDs are.
+ */
+function migrateMissingLoginIds(admins: AdminUser[]): AdminUser[] {
+  if (admins.every((admin) => admin.loginId)) return admins;
+
+  const migrated: AdminUser[] = [];
+  for (const admin of admins) {
+    if (admin.loginId) {
+      migrated.push(admin);
+      continue;
+    }
+
+    const base =
+      admin.id === DEFAULT_ADMIN.id
+        ? "admin"
+        : admin.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") || "staff";
+    let candidate = base;
+    let suffix = 2;
+    while (migrated.some((existing) => existing.loginId === candidate)) {
+      candidate = `${base}${suffix}`;
+      suffix += 1;
+    }
+    migrated.push({ ...admin, loginId: candidate });
+  }
+
+  writeAdmins(migrated);
+  return migrated;
+}
+
 function readAdmins(): AdminUser[] {
   if (typeof window === "undefined") return [DEFAULT_ADMIN];
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return migrateStaleDefaultAdmin(JSON.parse(raw) as AdminUser[]);
+    if (raw) return migrateMissingLoginIds(migrateStaleDefaultAdmin(JSON.parse(raw) as AdminUser[]));
 
     writeAdmins([DEFAULT_ADMIN]);
     return [DEFAULT_ADMIN];
@@ -90,9 +128,9 @@ export function getAdminById(id: string): AdminUser | undefined {
   return readAdmins().find((admin) => admin.id === id);
 }
 
-export function findAdminByEmail(email: string): AdminUser | undefined {
-  const normalized = email.trim().toLowerCase();
-  return readAdmins().find((admin) => admin.email.trim().toLowerCase() === normalized);
+export function findAdminByLoginId(loginId: string): AdminUser | undefined {
+  const normalized = loginId.trim().toLowerCase();
+  return readAdmins().find((admin) => admin.loginId.trim().toLowerCase() === normalized);
 }
 
 /**
@@ -143,13 +181,21 @@ export function isLastAdmin(id: string): boolean {
 export async function createAdmin(input: {
   name: string;
   email: string;
+  loginId: string;
   password: string;
   role: AdminRole;
-}): Promise<AdminUser> {
+}): Promise<{ admin?: AdminUser; error?: string }> {
+  const admins = readAdmins();
+  const normalizedLoginId = input.loginId.trim().toLowerCase();
+  if (admins.some((admin) => admin.loginId.trim().toLowerCase() === normalizedLoginId)) {
+    return { error: "That Login ID is already in use." };
+  }
+
   const admin: AdminUser = {
     id: `admin-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     name: input.name,
     email: input.email,
+    loginId: normalizedLoginId,
     password: await hashPassword(input.password.trim()),
     role: input.role,
     status: "active",
@@ -157,13 +203,15 @@ export async function createAdmin(input: {
     createdAt: new Date().toISOString(),
   };
 
-  writeAdmins([...readAdmins(), admin]);
-  return admin;
+  writeAdmins([...admins, admin]);
+  return { admin };
 }
 
 export async function updateAdmin(
   id: string,
-  updates: Partial<Pick<AdminUser, "name" | "email" | "role" | "status">> & { password?: string }
+  updates: Partial<Pick<AdminUser, "name" | "email" | "loginId" | "role" | "status">> & {
+    password?: string;
+  }
 ): Promise<{ admin?: AdminUser; error?: string }> {
   const admins = readAdmins();
   const target = admins.find((admin) => admin.id === id);
@@ -171,6 +219,14 @@ export async function updateAdmin(
 
   if (updates.role && updates.role !== "Admin" && isLastAdmin(id)) {
     return { error: "The platform must have at least one Admin." };
+  }
+
+  if (updates.loginId) {
+    const normalizedLoginId = updates.loginId.trim().toLowerCase();
+    if (admins.some((admin) => admin.id !== id && admin.loginId.trim().toLowerCase() === normalizedLoginId)) {
+      return { error: "That Login ID is already in use." };
+    }
+    updates = { ...updates, loginId: normalizedLoginId };
   }
 
   const { password, ...rest } = updates;

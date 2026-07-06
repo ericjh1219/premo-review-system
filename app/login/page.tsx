@@ -12,24 +12,33 @@ import { APP_VERSION } from "@/lib/version";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (getSession()) {
-      router.replace("/admin");
+    const session = getSession();
+    if (session) {
+      router.replace(session.adminId ? "/admin" : "/app");
     }
   }, [router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const result = await login(email, password);
+    const result = await login(loginId, password);
     if (!result.success) {
       setError(result.error);
       return;
     }
-    router.push("/admin");
+
+    const session = getSession();
+    if (session?.adminId) {
+      router.push("/admin");
+    } else if (result.mustChangePassword) {
+      router.push("/app/change-password");
+    } else {
+      router.push("/app");
+    }
   }
 
   return (
@@ -60,15 +69,15 @@ export default function LoginPage() {
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="loginId">Login ID</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@company.com"
+                  id="loginId"
+                  type="text"
+                  value={loginId}
+                  onChange={(event) => setLoginId(event.target.value)}
+                  placeholder="Enter your Login ID"
                   className="h-10"
-                  autoComplete="email"
+                  autoComplete="username"
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}

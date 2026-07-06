@@ -1,11 +1,13 @@
 import {
+  findBusinessByLoginId,
   getBusinessById,
   getCurrentBusinessId,
   setCurrentBusinessId,
+  verifyBusinessPassword,
   type Business,
 } from "@/lib/business";
 import {
-  findAdminByEmail,
+  findAdminByLoginId,
   getAdminById,
   recordAdminLogin,
   verifyAdminPassword,
@@ -13,7 +15,10 @@ import {
 } from "@/lib/admin";
 
 export type Session = {
-  adminId: string;
+  /** Set for a Super Admin session (see /admin). Mutually exclusive with businessId. */
+  adminId?: string;
+  /** Set for a Business Admin session that logged in directly (see /app). */
+  businessId?: string;
   /** Set while a Super Admin is "logged in as" a specific business (see Login As Business). */
   impersonatingBusinessId?: string;
 };
@@ -41,39 +46,63 @@ export function logout() {
   window.localStorage.removeItem(SESSION_KEY);
 }
 
-export type LoginResult = { success: true } | { success: false; error: string };
+export type LoginResult =
+  | { success: true; mustChangePassword: boolean }
+  | { success: false; error: string };
 
 /**
- * The only real login system in this app: internal PREMO admins and staff.
- * Businesses don't sign in with their own credentials day-to-day — a Super
- * Admin instead uses "Login As Business" to enter a business's dashboard on
- * their behalf (see startImpersonation below), and customers only ever see
- * the public share page.
+ * Two kinds of accounts can sign in with a Login ID: the single Super Admin
+ * (Login ID "admin", full platform access at /admin) and Business Admins
+ * (one auto-generated Login ID per business, scoped to their own /app
+ * dashboard). Login IDs are checked against Super Admins first, then
+ * businesses, since a Login ID is unique within each list but the two lists
+ * aren't cross-checked against each other.
  */
-export async function login(email: string, password: string): Promise<LoginResult> {
-  const admin = findAdminByEmail(email);
-  if (!admin) {
-    return { success: false, error: "Incorrect email or password." };
+export async function login(loginId: string, password: string): Promise<LoginResult> {
+  const admin = findAdminByLoginId(loginId);
+  if (admin) {
+    if (!(await verifyAdminPassword(admin, password))) {
+      return { success: false, error: "Incorrect Login ID or password." };
+    }
+    if (admin.status === "inactive") {
+      return { success: false, error: "This account has been deactivated." };
+    }
+
+    recordAdminLogin(admin.id);
+    setSession({ adminId: admin.id });
+    return { success: true, mustChangePassword: false };
   }
 
-  if (!(await verifyAdminPassword(admin, password))) {
-    return { success: false, error: "Incorrect email or password." };
+  const business = await findBusinessByLoginId(loginId);
+  if (!business) {
+    return { success: false, error: "Incorrect Login ID or password." };
   }
 
-  if (admin.status === "inactive") {
+  if (!(await verifyBusinessPassword(business, password))) {
+    return { success: false, error: "Incorrect Login ID or password." };
+  }
+
+  if (business.status === "inactive") {
     return { success: false, error: "This account has been deactivated." };
   }
 
-  recordAdminLogin(admin.id);
-  setSession({ adminId: admin.id });
-  return { success: true };
+  setCurrentBusinessId(business.id);
+  setSession({ businessId: business.id });
+  return { success: true, mustChangePassword: business.mustChangePassword };
 }
 
-/** Resolves the signed-in admin, or null if no session exists. */
+/** Resolves the signed-in Super Admin, or null if no admin session exists. */
 export function getAuthenticatedAdmin(): AdminUser | null {
   const session = getSession();
-  if (!session) return null;
+  if (!session?.adminId) return null;
   return getAdminById(session.adminId) ?? null;
+}
+
+/** The business directly signed in via Business Admin login, or null otherwise. */
+export async function getAuthenticatedBusiness(): Promise<Business | null> {
+  const session = getSession();
+  if (!session?.businessId) return null;
+  return (await getBusinessById(session.businessId)) ?? null;
 }
 
 /** The business currently selected for viewing in the per-business tools (Dashboard, Posts, Profile). */

@@ -33,9 +33,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   createBusiness,
+  DEFAULT_BUSINESS_PASSWORD,
   DEMO_BUSINESS,
   deleteBusiness,
   listBusinesses,
+  resetBusinessPassword,
   setBusinessStatus,
   updateBusiness,
   type Business,
@@ -76,6 +78,8 @@ export default function BusinessesPage() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Business | null>(null);
+  const [resetTarget, setResetTarget] = useState<Business | null>(null);
+  const [resetDone, setResetDone] = useState<Business | null>(null);
 
   useEffect(() => {
     listBusinesses().then(setBusinesses);
@@ -179,6 +183,18 @@ export default function BusinessesPage() {
     router.push("/app");
   }
 
+  async function handleConfirmReset() {
+    if (!resetTarget) return;
+    const updated = await resetBusinessPassword(resetTarget.id);
+    if (updated) {
+      setBusinesses((current) =>
+        current.map((existing) => (existing.id === resetTarget.id ? updated : existing))
+      );
+      setResetDone(updated);
+    }
+    setResetTarget(null);
+  }
+
   return (
     <>
       <PageHeader
@@ -214,6 +230,7 @@ export default function BusinessesPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Business Name</TableHead>
                   <TableHead>Business ID</TableHead>
+                  <TableHead>Login ID</TableHead>
                   <TableHead>Contact Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
@@ -224,7 +241,7 @@ export default function BusinessesPage() {
               <TableBody>
                 {filteredBusinesses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       No businesses match your search.
                     </TableCell>
                   </TableRow>
@@ -234,6 +251,9 @@ export default function BusinessesPage() {
                       <TableCell className="font-medium">{business.name}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
                         {business.id}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {business.loginId}
                       </TableCell>
                       <TableCell>{business.contactName || "—"}</TableCell>
                       <TableCell className="text-muted-foreground">
@@ -269,6 +289,9 @@ export default function BusinessesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLoginAsBusiness(business)}>
                               Login As Business
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setResetTarget(business)}>
+                              Reset Password
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(business)}>
                               {business.status === "active" ? "Deactivate" : "Activate"}
@@ -384,6 +407,45 @@ export default function BusinessesPage() {
             <Button variant="destructive" onClick={handleConfirmDelete}>
               Delete Business
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(resetTarget)} onOpenChange={(open) => !open && setResetTarget(null)}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Reset password?</DialogTitle>
+            <DialogDescription>
+              This will reset{" "}
+              <span className="font-medium text-foreground">{resetTarget?.name}</span>&apos;s
+              password to the default and require them to set a new one on their next login.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-6">
+            <Button variant="outline" onClick={() => setResetTarget(null)}>
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmReset}>Reset Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(resetDone)} onOpenChange={(open) => !open && setResetDone(null)}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>Password reset</DialogTitle>
+            <DialogDescription>
+              {resetDone?.name}&apos;s Login ID is{" "}
+              <span className="font-mono text-foreground">{resetDone?.loginId}</span> and their
+              password has been reset to the default (
+              <span className="font-mono text-foreground">{DEFAULT_BUSINESS_PASSWORD}</span>).
+              They&apos;ll be required to set a new password on their next login.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="mt-6">
+            <Button onClick={() => setResetDone(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

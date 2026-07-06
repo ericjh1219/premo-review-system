@@ -70,11 +70,12 @@ function formatDateTime(value: string | null) {
 type FormState = {
   name: string;
   email: string;
+  loginId: string;
   password: string;
   role: AdminRole;
 };
 
-const EMPTY_FORM: FormState = { name: "", email: "", password: "", role: "Staff" };
+const EMPTY_FORM: FormState = { name: "", email: "", loginId: "", password: "", role: "Staff" };
 
 export default function AdminUsersPage() {
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -107,7 +108,13 @@ export default function AdminUsersPage() {
 
   function openEditForm(admin: AdminUser) {
     setEditingId(admin.id);
-    setForm({ name: admin.name, email: admin.email, password: "", role: admin.role });
+    setForm({
+      name: admin.name,
+      email: admin.email,
+      loginId: admin.loginId,
+      password: "",
+      role: admin.role,
+    });
     setFormError(null);
     setFormOpen(true);
   }
@@ -124,6 +131,7 @@ export default function AdminUsersPage() {
   async function handleSave() {
     const name = form.name.trim();
     const email = form.email.trim();
+    const loginId = form.loginId.trim();
     const password = form.password.trim();
 
     if (!name) {
@@ -134,11 +142,16 @@ export default function AdminUsersPage() {
       setFormError("Email is required.");
       return;
     }
+    if (!loginId) {
+      setFormError("Login ID is required.");
+      return;
+    }
 
     if (editingId) {
       const { admin, error } = await updateAdmin(editingId, {
         name,
         email,
+        loginId,
         role: form.role,
         ...(password ? { password } : {}),
       });
@@ -158,8 +171,14 @@ export default function AdminUsersPage() {
       return;
     }
 
-    const created = await createAdmin({ name, email, password, role: form.role });
-    setAdmins((current) => [...current, created]);
+    const { admin, error } = await createAdmin({ name, email, loginId, password, role: form.role });
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    if (admin) {
+      setAdmins((current) => [...current, admin]);
+    }
     setFormOpen(false);
   }
 
@@ -214,6 +233,7 @@ export default function AdminUsersPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Name</TableHead>
+                  <TableHead>Login ID</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
@@ -225,7 +245,7 @@ export default function AdminUsersPage() {
               <TableBody>
                 {filteredAdmins.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                       No users match your search.
                     </TableCell>
                   </TableRow>
@@ -233,6 +253,9 @@ export default function AdminUsersPage() {
                   filteredAdmins.map((admin) => (
                     <TableRow key={admin.id}>
                       <TableCell className="font-medium">{admin.name}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {admin.loginId}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{admin.email}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{admin.role}</Badge>
@@ -308,6 +331,22 @@ export default function AdminUsersPage() {
                 value={form.email}
                 onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                 placeholder="e.g. jane@premostudio.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="admin-login-id">Login ID</Label>
+              <Input
+                id="admin-login-id"
+                value={form.loginId}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, loginId: event.target.value }))
+                }
+                placeholder="e.g. jane"
+                className="font-mono text-xs"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
 
