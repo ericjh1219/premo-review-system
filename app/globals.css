@@ -121,14 +121,29 @@
  * The customer/business "mobile" screens (Link Generator, Posts, Profile,
  * Share Page, QR Codes) are a fixed, always-light design — they use their
  * own hardcoded brand colors and were never meant to follow the admin
- * dashboard's dark mode toggle. Their dialogs still reuse the shared
- * Dialog/Input/Button primitives, though, which read the same design
- * tokens as the rest of the app — so when the admin's dark mode is on,
- * those tokens flip to dark-mode values (near-black background, near-white
- * text) inside a dialog whose own hardcoded content still assumes a light
- * background, producing dark-on-dark or light-on-light text. Applying this
- * class pins every token for that subtree back to its light-mode value, so
- * these dialogs render identically regardless of the global theme.
+ * dashboard's dark mode toggle (which also activates automatically for any
+ * visitor whose OS is in dark mode, via next-themes' enableSystem — not
+ * just the admin's manual toggle). Their dialogs, and some of the pages
+ * themselves, still reuse the shared Dialog/Input/Select/Switch/Table
+ * primitives, which read the same design tokens as the rest of the app —
+ * so when dark mode is active, those tokens flip to dark-mode values
+ * inside content whose own hardcoded parts still assume a light
+ * background, producing dark-on-dark or light-on-light text.
+ *
+ * Re-declaring the token variables alone isn't enough: `body { color:
+ * var(--foreground) }` resolves `color` to a fixed computed value at the
+ * body element, and plain CSS inheritance passes that resolved value down
+ * — not a live reference to --foreground — so any descendant with no
+ * `text-*` class of its own (e.g. the typed text in a bare <Input>) still
+ * inherits body's dark-mode color, bypassing a variable override further
+ * down the tree entirely. Explicitly setting color/background-color here
+ * (not just the variable) makes this class itself the new inheritance
+ * source for text color for anything below it that doesn't set its own.
+ * Deliberately does NOT set background-color: every place this class is
+ * used already has its own explicit background (bg-popover on dialogs,
+ * or the page's own fixed bg-[#hex]) — adding a second background
+ * declaration here would fight that on equal specificity, with the winner
+ * decided by arbitrary CSS source order rather than intent.
  */
 .theme-force-light {
   --background: oklch(0.99 0.002 264);
@@ -149,6 +164,7 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  color: var(--foreground);
 }
 
 @layer base {

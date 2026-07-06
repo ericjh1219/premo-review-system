@@ -247,7 +247,7 @@ export default function PostsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fefce8] pb-28">
+    <div className="theme-force-light min-h-screen bg-[#fefce8] pb-28">
       <div className="mx-auto w-full max-w-6xl space-y-4 px-5 pt-6 sm:px-8 sm:pt-8">
         <PostsToolbar
           search={search}

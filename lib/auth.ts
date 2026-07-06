@@ -11,7 +11,6 @@ import {
   verifyAdminPassword,
   type AdminUser,
 } from "@/lib/admin";
-import { authDebugLog } from "@/lib/debug-log";
 
 export type Session = {
   adminId: string;
@@ -52,44 +51,21 @@ export type LoginResult = { success: true } | { success: false; error: string };
  * the public share page.
  */
 export async function login(email: string, password: string): Promise<LoginResult> {
-  authDebugLog("STEP 1: email received", { email });
-
   const admin = findAdminByEmail(email);
-  authDebugLog("STEP 2: findAdminByEmail() result", { result: admin ? "found" : "null" });
-
   if (!admin) {
-    authDebugLog("RETURN", { value: "USER_NOT_FOUND" });
     return { success: false, error: "Incorrect email or password." };
   }
 
-  const passwordValid = await verifyAdminPassword(admin, password);
-  authDebugLog("STEP 3: verifyPassword() result", { result: passwordValid });
-
-  if (!passwordValid) {
-    authDebugLog("RETURN", { value: "PASSWORD_INVALID" });
+  if (!(await verifyAdminPassword(admin, password))) {
     return { success: false, error: "Incorrect email or password." };
   }
 
-  const accountActive = admin.status !== "inactive";
-  authDebugLog("STEP 4: account active?", { status: admin.status, accountActive });
-
-  if (!accountActive) {
-    authDebugLog("RETURN", { value: "ACCOUNT_INACTIVE" });
+  if (admin.status === "inactive") {
     return { success: false, error: "This account has been deactivated." };
   }
 
   recordAdminLogin(admin.id);
-
-  authDebugLog("STEP 5: setSession()", { adminId: admin.id });
   setSession({ adminId: admin.id });
-
-  // login() itself never redirects — app/login/page.tsx's onSubmit calls
-  // router.push("/admin") only after this function resolves with
-  // success:true. Logging that explicitly rather than fabricating a
-  // redirect step inside this function.
-  authDebugLog("STEP 6: redirect() — not performed here; caller (app/login/page.tsx) redirects on success:true", {});
-
-  authDebugLog("RETURN", { value: "SUCCESS" });
   return { success: true };
 }
 

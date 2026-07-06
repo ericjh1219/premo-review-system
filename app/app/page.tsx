@@ -77,7 +77,7 @@ export default function LinkGeneratorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#daf0ed] pb-28">
+    <div className="theme-force-light min-h-screen bg-[#daf0ed] pb-28">
       <div className="mx-auto w-full max-w-2xl px-5 pt-7 sm:px-6 sm:pt-8">
         <h1 className="text-[22px] font-bold tracking-tight text-[#1a1a1a] sm:text-[24px]">
           Welcome, {profile.business.name || "there"}

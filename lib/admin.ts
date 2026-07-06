@@ -98,18 +98,29 @@ export function findAdminByEmail(email: string): AdminUser | undefined {
 /**
  * Verifies a plaintext password against this admin's stored hash.
  *
+ * Trims the input first: a password typed by hand never has leading/
+ * trailing whitespace, but one delivered via clipboard paste sometimes
+ * does (copying from Notes, Messages, or a password manager can carry a
+ * trailing newline or space depending on the source and the browser
+ * engine's paste handling) — an exact-match hash comparison would silently
+ * reject an otherwise-correct password in that case. hashPassword() at
+ * account-creation/change time trims the same way, so a trimmed password
+ * is always what actually got hashed.
+ *
  * Some browsers may still have an admin record seeded before password
  * hashing was introduced (a plaintext password string). If so, and the
  * plaintext matches, transparently upgrade the stored record to a proper
  * hash so it never sits around in plaintext after a successful login.
  */
 export async function verifyAdminPassword(admin: AdminUser, password: string): Promise<boolean> {
+  const trimmedPassword = password.trim();
+
   if (!isHashedPassword(admin.password)) {
-    if (admin.password !== password) return false;
-    await migrateLegacyPassword(admin.id, password);
+    if (admin.password !== trimmedPassword) return false;
+    await migrateLegacyPassword(admin.id, trimmedPassword);
     return true;
   }
-  return verifyPassword(password, admin.password);
+  return verifyPassword(trimmedPassword, admin.password);
 }
 
 async function migrateLegacyPassword(id: string, password: string) {
@@ -139,7 +150,7 @@ export async function createAdmin(input: {
     id: `admin-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
     name: input.name,
     email: input.email,
-    password: await hashPassword(input.password),
+    password: await hashPassword(input.password.trim()),
     role: input.role,
     status: "active",
     lastLoginAt: null,
@@ -166,7 +177,7 @@ export async function updateAdmin(
   const updated: AdminUser = {
     ...target,
     ...rest,
-    ...(password ? { password: await hashPassword(password) } : {}),
+    ...(password ? { password: await hashPassword(password.trim()) } : {}),
   };
   writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
   return { admin: updated };
@@ -212,14 +223,15 @@ export async function changePassword(
   const admin = admins.find((existing) => existing.id === id);
   if (!admin) return { success: false, error: "Admin account not found." };
 
-  if (!(await verifyPassword(currentPassword, admin.password))) {
+  if (!(await verifyPassword(currentPassword.trim(), admin.password))) {
     return { success: false, error: "Current password is incorrect." };
   }
-  if (!newPassword || newPassword.length < 6) {
+  const trimmedNewPassword = newPassword.trim();
+  if (!trimmedNewPassword || trimmedNewPassword.length < 6) {
     return { success: false, error: "New password must be at least 6 characters." };
   }
 
-  const hashed = await hashPassword(newPassword);
+  const hashed = await hashPassword(trimmedNewPassword);
   writeAdmins(
     admins.map((existing) => (existing.id === id ? { ...existing, password: hashed } : existing))
   );

@@ -68,6 +68,10 @@ export default function LoginPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@company.com"
                   className="h-10"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
               <div className="space-y-2">
@@ -79,6 +83,10 @@ export default function LoginPage() {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
                   className="h-10"
+                  autoComplete="current-password"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
               {error && <p className="text-sm text-destructive">{error}</p>}

@@ -193,7 +193,7 @@ export default function ProfilePage() {
   const languageSelectedCount = Number(data.languagePreference.english) + Number(data.languagePreference.chinese);
 
   return (
-    <div className="min-h-screen bg-[#fdf1e3] pb-28">
+    <div className="theme-force-light min-h-screen bg-[#fdf1e3] pb-28">
       <div className="mx-auto w-full max-w-2xl space-y-6 px-5 pt-6 sm:px-6 sm:pt-8">
         <div className="mx-auto flex w-fit items-center gap-1 rounded-full bg-white/70 p-1 shadow-sm">
           <button

@@ -53,7 +53,7 @@ export default function SubscriptionPage() {
 
   if (!business) {
     return (
-      <div className="min-h-screen bg-[#fff7ed] pb-28">
+      <div className="theme-force-light min-h-screen bg-[#fff7ed] pb-28">
         <div className="mx-auto w-full max-w-2xl px-5 pt-6 sm:px-6 sm:pt-8">
           <Link
             href="/app"
@@ -97,7 +97,7 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff7ed] pb-28">
+    <div className="theme-force-light min-h-screen bg-[#fff7ed] pb-28">
       <div className="mx-auto w-full max-w-2xl space-y-4 px-5 pt-6 sm:px-6 sm:pt-8">
         <Link
           href="/app"
