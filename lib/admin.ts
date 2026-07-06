@@ -18,16 +18,14 @@ export type AdminUser = {
   createdAt: string;
 };
 
-const STORAGE_KEY = "premo-admins";
-
 /**
  * The one internal PREMO account this system ships with. There is no signup
  * flow, so this is the account used to log into the dashboard until more
- * admins are created (and until a proper Account Settings module lets this
- * admin change their own email/password post-launch). Pre-hashed so no
- * plaintext password ever appears in this codebase.
+ * admins are created. Pre-hashed so no plaintext password ever appears in
+ * this codebase. Used to seed data/admins.json (see lib/server/admin-registry.ts)
+ * the first time the server starts with no existing admin file.
  */
-const DEFAULT_ADMIN: AdminUser = {
+export const DEFAULT_ADMIN: AdminUser = {
   id: "admin-premo-default",
   name: "PREMO Studio",
   email: "admin@review.premostudio.my",
@@ -41,13 +39,10 @@ const DEFAULT_ADMIN: AdminUser = {
 
 /**
  * The exact seed values DEFAULT_ADMIN used to have, before its email/password
- * were rotated for launch. Auth has no server/database — every browser seeds
- * its own copy of DEFAULT_ADMIN into localStorage the first time it loads
- * the app, so a device that had already visited before the rotation is stuck
- * with this old record forever unless it's migrated forward here. Matching
- * on the *exact* old email+hash (not just "differs from current") means this
- * can only ever catch that stale seed — never an admin's own deliberate
- * password change, which would produce a different hash.
+ * were rotated for launch. Matching on the *exact* old email+hash (not just
+ * "differs from current") means this can only ever catch that stale seed —
+ * never an admin's own deliberate password change, which would produce a
+ * different hash.
  */
 const PRE_LAUNCH_SEED_ADMIN: Pick<AdminUser, "email" | "password"> = {
   email: "contact@premostudio.com",
@@ -61,18 +56,14 @@ function migrateStaleDefaultAdmin(admins: AdminUser[]): AdminUser[] {
     admin.password === PRE_LAUNCH_SEED_ADMIN.password;
 
   if (!admins.some(isStaleSeed)) return admins;
-
-  const migrated = admins.map((admin) => (isStaleSeed(admin) ? DEFAULT_ADMIN : admin));
-  writeAdmins(migrated);
-  return migrated;
+  return admins.map((admin) => (isStaleSeed(admin) ? DEFAULT_ADMIN : admin));
 }
 
 /**
- * Backfills loginId for admin records seeded before Login IDs replaced email
+ * Backfills loginId for admin records saved before Login IDs replaced email
  * as the login credential. The default Super Admin always gets "admin"; any
- * other pre-existing record (a Staff/Admin created via the Users page before
- * this migration) gets a sanitized-name fallback, de-duplicated against its
- * siblings the same way business Login IDs are.
+ * other pre-existing record gets a sanitized-name fallback, de-duplicated
+ * against its siblings the same way business Login IDs are.
  */
 function migrateMissingLoginIds(admins: AdminUser[]): AdminUser[] {
   if (admins.every((admin) => admin.loginId)) return admins;
@@ -97,40 +88,52 @@ function migrateMissingLoginIds(admins: AdminUser[]): AdminUser[] {
     migrated.push({ ...admin, loginId: candidate });
   }
 
-  writeAdmins(migrated);
   return migrated;
 }
 
-function readAdmins(): AdminUser[] {
-  if (typeof window === "undefined") return [DEFAULT_ADMIN];
-
+/**
+ * Reads the full admin/staff registry from the Admins API, the single
+ * shared source of truth for every browser and device (mirrors
+ * lib/business.ts's fetchRegistry()). Falls back to [DEFAULT_ADMIN] if the
+ * registry is empty or the request fails. Any record missing a loginId, or
+ * still carrying the stale pre-launch seed, gets migrated here once and
+ * persisted — so every client sees the same corrected record from then on.
+ */
+async function fetchAdmins(): Promise<AdminUser[]> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw) return migrateMissingLoginIds(migrateStaleDefaultAdmin(JSON.parse(raw) as AdminUser[]));
+    const res = await fetch("/api/admins");
+    if (!res.ok) return [DEFAULT_ADMIN];
 
-    writeAdmins([DEFAULT_ADMIN]);
-    return [DEFAULT_ADMIN];
+    const parsed = (await res.json()) as AdminUser[];
+    if (parsed.length === 0) return [DEFAULT_ADMIN];
+
+    const migrated = migrateMissingLoginIds(migrateStaleDefaultAdmin(parsed));
+    if (migrated !== parsed) await writeAdmins(migrated);
+    return migrated;
   } catch {
     return [DEFAULT_ADMIN];
   }
 }
 
-function writeAdmins(admins: AdminUser[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(admins));
+async function writeAdmins(admins: AdminUser[]): Promise<void> {
+  await fetch("/api/admins", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(admins),
+  });
 }
 
-export function listAdmins(): AdminUser[] {
-  return readAdmins();
+export async function listAdmins(): Promise<AdminUser[]> {
+  return fetchAdmins();
 }
 
-export function getAdminById(id: string): AdminUser | undefined {
-  return readAdmins().find((admin) => admin.id === id);
+export async function getAdminById(id: string): Promise<AdminUser | undefined> {
+  return (await fetchAdmins()).find((admin) => admin.id === id);
 }
 
-export function findAdminByLoginId(loginId: string): AdminUser | undefined {
+export async function findAdminByLoginId(loginId: string): Promise<AdminUser | undefined> {
   const normalized = loginId.trim().toLowerCase();
-  return readAdmins().find((admin) => admin.loginId.trim().toLowerCase() === normalized);
+  return (await fetchAdmins()).find((admin) => admin.loginId.trim().toLowerCase() === normalized);
 }
 
 /**
@@ -145,10 +148,9 @@ export function findAdminByLoginId(loginId: string): AdminUser | undefined {
  * account-creation/change time trims the same way, so a trimmed password
  * is always what actually got hashed.
  *
- * Some browsers may still have an admin record seeded before password
- * hashing was introduced (a plaintext password string). If so, and the
- * plaintext matches, transparently upgrade the stored record to a proper
- * hash so it never sits around in plaintext after a successful login.
+ * Some records may still carry a plaintext password from before hashing was
+ * introduced. If so, and the plaintext matches, transparently upgrade the
+ * stored record to a proper hash so it never sits around in plaintext.
  */
 export async function verifyAdminPassword(admin: AdminUser, password: string): Promise<boolean> {
   const trimmedPassword = password.trim();
@@ -162,20 +164,16 @@ export async function verifyAdminPassword(admin: AdminUser, password: string): P
 }
 
 async function migrateLegacyPassword(id: string, password: string) {
-  const admins = readAdmins();
+  const admins = await fetchAdmins();
   const hashed = await hashPassword(password);
-  writeAdmins(admins.map((admin) => (admin.id === id ? { ...admin, password: hashed } : admin)));
-}
-
-function countAdminsWithRole(admins: AdminUser[], excludingId?: string) {
-  return admins.filter((admin) => admin.role === "Admin" && admin.id !== excludingId).length;
+  await writeAdmins(admins.map((admin) => (admin.id === id ? { ...admin, password: hashed } : admin)));
 }
 
 /** Whether removing or demoting this account would leave the platform with zero Admins. */
-export function isLastAdmin(id: string): boolean {
-  const admins = readAdmins();
+export function isLastAdmin(admins: AdminUser[], id: string): boolean {
   const admin = admins.find((existing) => existing.id === id);
-  return Boolean(admin) && admin!.role === "Admin" && countAdminsWithRole(admins, id) === 0;
+  if (!admin || admin.role !== "Admin") return false;
+  return admins.filter((existing) => existing.role === "Admin" && existing.id !== id).length === 0;
 }
 
 export async function createAdmin(input: {
@@ -185,7 +183,7 @@ export async function createAdmin(input: {
   password: string;
   role: AdminRole;
 }): Promise<{ admin?: AdminUser; error?: string }> {
-  const admins = readAdmins();
+  const admins = await fetchAdmins();
   const normalizedLoginId = input.loginId.trim().toLowerCase();
   if (admins.some((admin) => admin.loginId.trim().toLowerCase() === normalizedLoginId)) {
     return { error: "That Login ID is already in use." };
@@ -203,7 +201,7 @@ export async function createAdmin(input: {
     createdAt: new Date().toISOString(),
   };
 
-  writeAdmins([...admins, admin]);
+  await writeAdmins([...admins, admin]);
   return { admin };
 }
 
@@ -213,11 +211,11 @@ export async function updateAdmin(
     password?: string;
   }
 ): Promise<{ admin?: AdminUser; error?: string }> {
-  const admins = readAdmins();
+  const admins = await fetchAdmins();
   const target = admins.find((admin) => admin.id === id);
   if (!target) return { error: "Admin account not found." };
 
-  if (updates.role && updates.role !== "Admin" && isLastAdmin(id)) {
+  if (updates.role && updates.role !== "Admin" && isLastAdmin(admins, id)) {
     return { error: "The platform must have at least one Admin." };
   }
 
@@ -235,47 +233,49 @@ export async function updateAdmin(
     ...rest,
     ...(password ? { password: await hashPassword(password.trim()) } : {}),
   };
-  writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
+  await writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
   return { admin: updated };
 }
 
-export function setAdminStatus(
+export async function setAdminStatus(
   id: string,
   status: AdminStatus
-): { admin?: AdminUser; error?: string } {
-  const admins = readAdmins();
+): Promise<{ admin?: AdminUser; error?: string }> {
+  const admins = await fetchAdmins();
   const target = admins.find((admin) => admin.id === id);
   if (!target) return { error: "Admin account not found." };
 
   const updated: AdminUser = { ...target, status };
-  writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
+  await writeAdmins(admins.map((admin) => (admin.id === id ? updated : admin)));
   return { admin: updated };
 }
 
-export function deleteAdmin(id: string): { success: boolean; error?: string } {
-  if (isLastAdmin(id)) {
+export async function deleteAdmin(id: string): Promise<{ success: boolean; error?: string }> {
+  const admins = await fetchAdmins();
+  if (isLastAdmin(admins, id)) {
     return { success: false, error: "Cannot delete the last Admin on the platform." };
   }
 
-  writeAdmins(readAdmins().filter((admin) => admin.id !== id));
+  await writeAdmins(admins.filter((admin) => admin.id !== id));
   return { success: true };
 }
 
-export function recordAdminLogin(id: string): void {
-  const admins = readAdmins();
-  writeAdmins(
+export async function recordAdminLogin(id: string): Promise<void> {
+  const admins = await fetchAdmins();
+  await writeAdmins(
     admins.map((admin) =>
       admin.id === id ? { ...admin, lastLoginAt: new Date().toISOString() } : admin
     )
   );
 }
 
+/** Changes an admin's own password — updates the shared server record, visible to every browser and device. */
 export async function changePassword(
   id: string,
   currentPassword: string,
   newPassword: string
 ): Promise<{ success: boolean; error?: string }> {
-  const admins = readAdmins();
+  const admins = await fetchAdmins();
   const admin = admins.find((existing) => existing.id === id);
   if (!admin) return { success: false, error: "Admin account not found." };
 
@@ -288,7 +288,7 @@ export async function changePassword(
   }
 
   const hashed = await hashPassword(trimmedNewPassword);
-  writeAdmins(
+  await writeAdmins(
     admins.map((existing) => (existing.id === id ? { ...existing, password: hashed } : existing))
   );
   return { success: true };

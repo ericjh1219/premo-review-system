@@ -57,7 +57,7 @@ export type LoginResult = { success: true } | { success: false; error: string };
  * aren't cross-checked against each other.
  */
 export async function login(loginId: string, password: string): Promise<LoginResult> {
-  const admin = findAdminByLoginId(loginId);
+  const admin = await findAdminByLoginId(loginId);
   if (admin) {
     if (!(await verifyAdminPassword(admin, password))) {
       return { success: false, error: "Incorrect Login ID or password." };
@@ -66,7 +66,7 @@ export async function login(loginId: string, password: string): Promise<LoginRes
       return { success: false, error: "This account has been deactivated." };
     }
 
-    recordAdminLogin(admin.id);
+    await recordAdminLogin(admin.id);
     setSession({ adminId: admin.id });
     return { success: true };
   }
@@ -90,10 +90,10 @@ export async function login(loginId: string, password: string): Promise<LoginRes
 }
 
 /** Resolves the signed-in Super Admin, or null if no admin session exists. */
-export function getAuthenticatedAdmin(): AdminUser | null {
+export async function getAuthenticatedAdmin(): Promise<AdminUser | null> {
   const session = getSession();
   if (!session?.adminId) return null;
-  return getAdminById(session.adminId) ?? null;
+  return (await getAdminById(session.adminId)) ?? null;
 }
 
 /** The business currently selected for viewing in the per-business tools (Dashboard, Posts, Profile). */

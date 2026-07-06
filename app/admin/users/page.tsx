@@ -87,7 +87,7 @@ export default function AdminUsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
 
   useEffect(() => {
-    setAdmins(listAdmins());
+    listAdmins().then(setAdmins);
   }, []);
 
   const filteredAdmins = useMemo(() => {
@@ -182,17 +182,17 @@ export default function AdminUsersPage() {
     setFormOpen(false);
   }
 
-  function handleToggleStatus(admin: AdminUser) {
+  async function handleToggleStatus(admin: AdminUser) {
     const nextStatus = admin.status === "active" ? "inactive" : "active";
-    const { admin: updated } = setAdminStatus(admin.id, nextStatus);
+    const { admin: updated } = await setAdminStatus(admin.id, nextStatus);
     if (updated) {
       setAdmins((current) => current.map((existing) => (existing.id === admin.id ? updated : existing)));
     }
   }
 
-  function handleConfirmDelete() {
+  async function handleConfirmDelete() {
     if (!deleteTarget) return;
-    const { success } = deleteAdmin(deleteTarget.id);
+    const { success } = await deleteAdmin(deleteTarget.id);
     if (success) {
       setAdmins((current) => current.filter((admin) => admin.id !== deleteTarget.id));
     }
@@ -284,7 +284,7 @@ export default function AdminUsersPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               variant="destructive"
-                              disabled={isLastAdmin(admin.id)}
+                              disabled={isLastAdmin(admins, admin.id)}
                               onClick={() => setDeleteTarget(admin)}
                             >
                               Delete

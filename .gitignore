@@ -52,6 +52,9 @@ yarn-error.log*
 # runtime data (generated automatically by the Businesses API)
 /data/businesses.json
 
+# runtime data (generated automatically by the Admins API)
+/data/admins.json
+
 # uploaded files (generated automatically by the Upload API)
 /public/uploads/
 

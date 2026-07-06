@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getAuthenticatedAdmin, logout } from "@/lib/auth";
+import type { AdminUser } from "@/lib/admin";
 
 type TopNavProps = {
   onMenuClick?: () => void;
@@ -24,7 +25,10 @@ type TopNavProps = {
 
 export function TopNav({ onMenuClick }: TopNavProps) {
   const router = useRouter();
-  const [admin] = useState(getAuthenticatedAdmin);
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  useEffect(() => {
+    getAuthenticatedAdmin().then(setAdmin);
+  }, []);
 
   function handleLogout() {
     logout();

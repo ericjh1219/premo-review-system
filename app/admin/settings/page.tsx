@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAuthenticatedAdmin } from "@/lib/auth";
-import { changePassword } from "@/lib/admin";
+import { changePassword, type AdminUser } from "@/lib/admin";
 
 export default function SettingsPage() {
-  const [admin] = useState(getAuthenticatedAdmin);
+  const [admin, setAdmin] = useState<AdminUser | null>(null);
+  useEffect(() => {
+    getAuthenticatedAdmin().then(setAdmin);
+  }, []);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");

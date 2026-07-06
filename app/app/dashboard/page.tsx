@@ -15,6 +15,7 @@ import { LuckyDrawReportModal } from "@/components/link-generator/lucky-draw-rep
 import { StatCard } from "@/components/link-generator/stat-card";
 import { TrackingReportModal } from "@/components/link-generator/tracking-report-modal";
 import { getAuthenticatedAdmin, logout, resolveBusinessId } from "@/lib/auth";
+import type { AdminUser } from "@/lib/admin";
 import { getMockLuckyDrawParticipants, PLATFORM_OPTIONS } from "@/lib/dashboard-data";
 import { DEFAULT_PROFILE_DATA, fetchProfileData, type ProfileData } from "@/lib/profile-storage";
 import { trackingService } from "@/lib/tracking-service";
@@ -55,7 +56,7 @@ function defaultEnd() {
 export default function LinkGeneratorDashboardPage() {
   const router = useRouter();
   const [businessId] = useState(resolveBusinessId);
-  const [currentAdmin] = useState(getAuthenticatedAdmin);
+  const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
   const [startTime, setStartTime] = useState(defaultStart);
   const [endTime, setEndTime] = useState(defaultEnd);
   const [trackingOpen, setTrackingOpen] = useState(false);
@@ -84,6 +85,10 @@ export default function LinkGeneratorDashboardPage() {
       cancelled = true;
     };
   }, [businessId, refreshTick]);
+
+  useEffect(() => {
+    getAuthenticatedAdmin().then(setCurrentAdmin);
+  }, []);
 
   const rangeStart = startTime ? new Date(startTime).getTime() : -Infinity;
   const rangeEnd = endTime ? new Date(endTime).getTime() : Infinity;
