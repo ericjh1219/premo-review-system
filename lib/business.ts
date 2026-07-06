@@ -1,5 +1,4 @@
 import { getSubscriptionPlan, type SubscriptionPlanId } from "@/lib/subscription-plans";
-import { hashPassword, verifyPassword } from "@/lib/password";
 
 export type BusinessStatus = "active" | "inactive";
 
@@ -26,23 +25,22 @@ export type Business = {
   name: string;
   contactName: string;
   email: string;
+  phoneNumber: string;
   status: BusinessStatus;
   createdAt: string;
   subscription: Subscription;
   /** Used to log in directly as this business's admin — see lib/auth.ts's login(). Never an email. */
   loginId: string;
-  /** Always a "salt:hash" string — never the plaintext password. */
-  passwordHash: string;
-  /** True until this business's admin changes the default/reset password — enforced by MustChangePasswordGuard. */
-  mustChangePassword: boolean;
+  /**
+   * Plain text for now — this is a pre-launch development shortcut so Super
+   * Admin can see and set a business's password directly. Replace with
+   * proper hashing before this goes anywhere near real traffic.
+   */
+  password: string;
 };
 
-/** The password every new or reset Business Admin account starts with, until they change it. */
+/** The password a newly created business starts with unless the Add Business form sets its own. */
 export const DEFAULT_BUSINESS_PASSWORD = "12345";
-
-/** Precomputed hash of DEFAULT_BUSINESS_PASSWORD, so seeding/migrating a business's default password never needs an async hash call. */
-const DEFAULT_BUSINESS_PASSWORD_HASH =
-  "premo-default-business-password:b12d0c824c1332da2ae65fc025d327c8d125ff2d4e1e3607562826e3d3aea872";
 
 /** Keeps only what a login id is allowed to contain — lowercase letters and digits. */
 function sanitizeLoginIdSegment(value: string): string {
@@ -59,6 +57,11 @@ function generateLoginId(businessId: string, existing: Business[]): string {
     suffix += 1;
   }
   return `${base}${suffix}`;
+}
+
+/** Suggests a Login ID for the Add Business form — the admin can still edit it before saving. */
+export function suggestLoginId(businessId: string, existing: Business[]): string {
+  return generateLoginId(businessId, existing);
 }
 
 const CURRENT_BUSINESS_KEY = "premo-current-business-id";
@@ -127,6 +130,7 @@ export const DEMO_BUSINESS: Business = {
   name: "PREMO Studio",
   contactName: "Premo Admin",
   email: "contact@premostudio.com",
+  phoneNumber: "",
   status: "active",
   createdAt: "2026-01-01T00:00:00.000Z",
   subscription: {
@@ -143,33 +147,37 @@ export const DEMO_BUSINESS: Business = {
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   loginId: "admin_premo",
-  passwordHash: DEFAULT_BUSINESS_PASSWORD_HASH,
-  mustChangePassword: true,
+  password: DEFAULT_BUSINESS_PASSWORD,
 };
 
 /**
  * Fills in any missing fields on a stored business record — including the
- * brand-new loginId/passwordHash/mustChangePassword fields older records
- * were saved without. `siblings` is the already-normalized list processed
- * so far in this same pass, so a freshly-generated login id can never
- * collide with one just generated for an earlier business in the same
- * registry.
+ * loginId/password fields older records were saved without, and any
+ * still-hashed password left over from before passwords were switched to
+ * plain text (falls back to the shared default since the original plain
+ * text can't be recovered from a hash). `siblings` is the already-normalized
+ * list processed so far in this same pass, so a freshly-generated login id
+ * can never collide with one just generated for an earlier business in the
+ * same registry.
  */
 function normalize(
   business: Partial<Business> & { id: string; name: string },
   siblings: Business[]
 ): Business {
+  const legacyHashedPassword =
+    typeof business.password === "string" && business.password.includes(":");
+
   return {
     id: business.id,
     name: business.name,
     contactName: business.contactName ?? "",
     email: business.email ?? "",
+    phoneNumber: business.phoneNumber ?? "",
     status: business.status ?? "active",
     createdAt: business.createdAt ?? new Date().toISOString(),
     subscription: normalizeSubscription(business.subscription),
     loginId: business.loginId ?? generateLoginId(business.id, siblings),
-    passwordHash: business.passwordHash ?? DEFAULT_BUSINESS_PASSWORD_HASH,
-    mustChangePassword: business.mustChangePassword ?? true,
+    password: !business.password || legacyHashedPassword ? DEFAULT_BUSINESS_PASSWORD : business.password,
   };
 }
 
@@ -178,13 +186,8 @@ function normalize(
  * every entry exactly as the previous localStorage-backed readRegistry()
  * did. Falls back to [DEMO_BUSINESS] if the registry is empty or the
  * request fails, matching the old behavior. Any record missing the
- * loginId/passwordHash/mustChangePassword fields introduced for direct
- * Business Admin login gets backfilled here, once, and persisted — so
- * every client sees the exact same generated login id and default
- * password hash from then on, instead of silently recomputing it on every
- * read (which would let a duplicate-suffix login id drift between
- * requests, and is pointless work anyway since the hash is a fixed
- * constant for the shared default password).
+ * loginId/password fields introduced for direct Business Admin login gets
+ * backfilled here, once, and persisted.
  */
 async function fetchRegistry(): Promise<Business[]> {
   try {
@@ -197,7 +200,7 @@ async function fetchRegistry(): Promise<Business[]> {
     const normalized: Business[] = [];
     let needsPersist = false;
     for (const raw of parsed) {
-      if (!raw.loginId || !raw.passwordHash) needsPersist = true;
+      if (!raw.loginId || !raw.password || raw.password.includes(":")) needsPersist = true;
       normalized.push(normalize(raw, normalized));
     }
 
@@ -229,38 +232,71 @@ export async function createBusiness(input: {
   name: string;
   contactName: string;
   email: string;
-}): Promise<Business> {
+  phoneNumber: string;
+  loginId: string;
+  password: string;
+  plan?: SubscriptionPlanId;
+  expiryDate?: string;
+  status?: BusinessStatus;
+}): Promise<{ business?: Business; error?: string }> {
   const registry = await fetchRegistry();
   if (registry.some((existing) => existing.id === input.id)) {
-    throw new Error(`A business with id "${input.id}" already exists.`);
+    return { error: `A business with id "${input.id}" already exists.` };
   }
 
+  const loginId = input.loginId.trim().toLowerCase();
+  if (registry.some((existing) => existing.loginId.trim().toLowerCase() === loginId)) {
+    return { error: `Login ID "${loginId}" is already in use.` };
+  }
+
+  const subscription = defaultSubscription();
   const business: Business = {
     id: input.id,
     name: input.name,
     contactName: input.contactName,
     email: input.email,
-    status: "active",
+    phoneNumber: input.phoneNumber,
+    status: input.status ?? "active",
     createdAt: new Date().toISOString(),
-    subscription: defaultSubscription(),
-    loginId: generateLoginId(input.id, registry),
-    passwordHash: DEFAULT_BUSINESS_PASSWORD_HASH,
-    mustChangePassword: true,
+    subscription: {
+      ...subscription,
+      plan: input.plan ?? subscription.plan,
+      expiryDate: input.expiryDate ?? subscription.expiryDate,
+    },
+    loginId,
+    password: input.password,
   };
 
   await writeRegistry([...registry, business]);
-  return business;
+  return { business };
 }
 
 export async function updateBusiness(
   id: string,
   updates: Partial<
-    Pick<Business, "name" | "contactName" | "email" | "status" | "passwordHash" | "mustChangePassword">
+    Pick<
+      Business,
+      "name" | "contactName" | "email" | "phoneNumber" | "status" | "loginId" | "password"
+    >
   >
-): Promise<Business | undefined> {
+): Promise<{ business?: Business; error?: string }> {
   const registry = await fetchRegistry();
-  let updated: Business | undefined;
+  const target = registry.find((business) => business.id === id);
+  if (!target) return { error: "Business not found." };
 
+  if (updates.loginId) {
+    const normalizedLoginId = updates.loginId.trim().toLowerCase();
+    if (
+      registry.some(
+        (business) => business.id !== id && business.loginId.trim().toLowerCase() === normalizedLoginId
+      )
+    ) {
+      return { error: `Login ID "${normalizedLoginId}" is already in use.` };
+    }
+    updates = { ...updates, loginId: normalizedLoginId };
+  }
+
+  let updated: Business | undefined;
   const next = registry.map((business) => {
     if (business.id !== id) return business;
     updated = { ...business, ...updates };
@@ -268,14 +304,7 @@ export async function updateBusiness(
   });
 
   if (updated) await writeRegistry(next);
-  return updated;
-}
-
-export async function setBusinessStatus(
-  id: string,
-  status: BusinessStatus
-): Promise<Business | undefined> {
-  return updateBusiness(id, { status });
+  return { business: updated };
 }
 
 /** Looks up a business by its Business Admin login id (see lib/auth.ts's login()). Never matches on email. */
@@ -286,49 +315,9 @@ export async function findBusinessByLoginId(loginId: string): Promise<Business |
   );
 }
 
-/** Verifies a plaintext password against this business's stored hash. Trims first, same reasoning as verifyAdminPassword in lib/admin.ts. */
-export async function verifyBusinessPassword(
-  business: Business,
-  password: string
-): Promise<boolean> {
-  return verifyPassword(password.trim(), business.passwordHash);
-}
-
-/** Super Admin action: resets a business's password back to the shared default and forces a change on next login. */
-export async function resetBusinessPassword(id: string): Promise<Business | undefined> {
-  return updateBusiness(id, {
-    passwordHash: DEFAULT_BUSINESS_PASSWORD_HASH,
-    mustChangePassword: true,
-  });
-}
-
-/** Business Admin action: changes their own password, verifying the current one first. */
-export async function changeBusinessPassword(
-  id: string,
-  currentPassword: string,
-  newPassword: string
-): Promise<{ success: boolean; error?: string }> {
-  const registry = await fetchRegistry();
-  const business = registry.find((existing) => existing.id === id);
-  if (!business) return { success: false, error: "Business account not found." };
-
-  if (!(await verifyBusinessPassword(business, currentPassword))) {
-    return { success: false, error: "Current password is incorrect." };
-  }
-
-  const trimmedNewPassword = newPassword.trim();
-  if (!trimmedNewPassword || trimmedNewPassword.length < 6) {
-    return { success: false, error: "New password must be at least 6 characters." };
-  }
-
-  const hashed = await hashPassword(trimmedNewPassword);
-  const next = registry.map((existing) =>
-    existing.id === id
-      ? { ...existing, passwordHash: hashed, mustChangePassword: false }
-      : existing
-  );
-  await writeRegistry(next);
-  return { success: true };
+/** Verifies a plaintext password against this business's stored plaintext password. */
+export function verifyBusinessPassword(business: Business, password: string): boolean {
+  return password.trim() === business.password;
 }
 
 export async function updateBusinessSubscription(

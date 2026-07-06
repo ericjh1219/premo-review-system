@@ -32,13 +32,7 @@ export default function LoginPage() {
     }
 
     const session = getSession();
-    if (session?.adminId) {
-      router.push("/admin");
-    } else if (result.mustChangePassword) {
-      router.push("/app/change-password");
-    } else {
-      router.push("/app");
-    }
+    router.push(session?.adminId ? "/admin" : "/app");
   }
 
   return (

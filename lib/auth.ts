@@ -46,9 +46,7 @@ export function logout() {
   window.localStorage.removeItem(SESSION_KEY);
 }
 
-export type LoginResult =
-  | { success: true; mustChangePassword: boolean }
-  | { success: false; error: string };
+export type LoginResult = { success: true } | { success: false; error: string };
 
 /**
  * Two kinds of accounts can sign in with a Login ID: the single Super Admin
@@ -70,7 +68,7 @@ export async function login(loginId: string, password: string): Promise<LoginRes
 
     recordAdminLogin(admin.id);
     setSession({ adminId: admin.id });
-    return { success: true, mustChangePassword: false };
+    return { success: true };
   }
 
   const business = await findBusinessByLoginId(loginId);
@@ -78,7 +76,7 @@ export async function login(loginId: string, password: string): Promise<LoginRes
     return { success: false, error: "Incorrect Login ID or password." };
   }
 
-  if (!(await verifyBusinessPassword(business, password))) {
+  if (!verifyBusinessPassword(business, password)) {
     return { success: false, error: "Incorrect Login ID or password." };
   }
 
@@ -88,7 +86,7 @@ export async function login(loginId: string, password: string): Promise<LoginRes
 
   setCurrentBusinessId(business.id);
   setSession({ businessId: business.id });
-  return { success: true, mustChangePassword: business.mustChangePassword };
+  return { success: true };
 }
 
 /** Resolves the signed-in Super Admin, or null if no admin session exists. */
@@ -96,13 +94,6 @@ export function getAuthenticatedAdmin(): AdminUser | null {
   const session = getSession();
   if (!session?.adminId) return null;
   return getAdminById(session.adminId) ?? null;
-}
-
-/** The business directly signed in via Business Admin login, or null otherwise. */
-export async function getAuthenticatedBusiness(): Promise<Business | null> {
-  const session = getSession();
-  if (!session?.businessId) return null;
-  return (await getBusinessById(session.businessId)) ?? null;
 }
 
 /** The business currently selected for viewing in the per-business tools (Dashboard, Posts, Profile). */

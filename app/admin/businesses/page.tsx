@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -36,13 +43,18 @@ import {
   DEFAULT_BUSINESS_PASSWORD,
   DEMO_BUSINESS,
   deleteBusiness,
+  getEffectiveSubscriptionStatus,
   listBusinesses,
-  resetBusinessPassword,
-  setBusinessStatus,
+  suggestLoginId,
   updateBusiness,
+  updateBusinessSubscription,
   type Business,
+  type BusinessStatus,
 } from "@/lib/business";
+import { getSubscriptionPlan, SUBSCRIPTION_PLAN_LIST, type SubscriptionPlanId } from "@/lib/subscription-plans";
 import { startImpersonation } from "@/lib/auth";
+
+const STATUSES: BusinessStatus[] = ["active", "inactive"];
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString(undefined, {
@@ -50,6 +62,16 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   });
+}
+
+function toDateInputValue(value: string) {
+  return value.slice(0, 10);
+}
+
+function defaultExpiryDate() {
+  const date = new Date();
+  date.setDate(date.getDate() + 30);
+  return toDateInputValue(date.toISOString());
 }
 
 function slugify(value: string) {
@@ -60,14 +82,42 @@ function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+/** The Active/Inactive/Expired label shown in the table — combines the business's own status with its subscription's expiry. */
+function displayStatus(business: Business): "active" | "inactive" | "expired" {
+  if (business.status === "inactive") return "inactive";
+  if (getEffectiveSubscriptionStatus(business) === "expired") return "expired";
+  return "active";
+}
+
 type FormState = {
   id: string;
   name: string;
   contactName: string;
   email: string;
+  phoneNumber: string;
+  loginId: string;
+  password: string;
+  confirmPassword: string;
+  plan: SubscriptionPlanId;
+  expiryDate: string;
+  status: BusinessStatus;
 };
 
-const EMPTY_FORM: FormState = { id: "", name: "", contactName: "", email: "" };
+function emptyForm(): FormState {
+  return {
+    id: "",
+    name: "",
+    contactName: "",
+    email: "",
+    phoneNumber: "",
+    loginId: "",
+    password: "",
+    confirmPassword: "",
+    plan: "basic",
+    expiryDate: defaultExpiryDate(),
+    status: "active",
+  };
+}
 
 export default function BusinessesPage() {
   const router = useRouter();
@@ -75,11 +125,9 @@ export default function BusinessesPage() {
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Business | null>(null);
-  const [resetTarget, setResetTarget] = useState<Business | null>(null);
-  const [resetDone, setResetDone] = useState<Business | null>(null);
 
   useEffect(() => {
     listBusinesses().then(setBusinesses);
@@ -90,16 +138,13 @@ export default function BusinessesPage() {
     if (!query) return businesses;
 
     return businesses.filter((business) =>
-      [business.name, business.id, business.contactName, business.email]
-        .join(" ")
-        .toLowerCase()
-        .includes(query)
+      [business.name, business.loginId, business.email].join(" ").toLowerCase().includes(query)
     );
   }, [businesses, search]);
 
   function openCreateForm() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm(emptyForm());
     setFormError(null);
     setFormOpen(true);
   }
@@ -111,6 +156,13 @@ export default function BusinessesPage() {
       name: business.name,
       contactName: business.contactName,
       email: business.email,
+      phoneNumber: business.phoneNumber,
+      loginId: business.loginId,
+      password: business.password,
+      confirmPassword: business.password,
+      plan: business.subscription.plan,
+      expiryDate: toDateInputValue(business.subscription.expiryDate),
+      status: business.status,
     });
     setFormError(null);
     setFormOpen(true);
@@ -120,7 +172,7 @@ export default function BusinessesPage() {
     setFormOpen(open);
     if (!open) {
       setEditingId(null);
-      setForm(EMPTY_FORM);
+      setForm(emptyForm());
       setFormError(null);
     }
   }
@@ -129,17 +181,54 @@ export default function BusinessesPage() {
     const name = form.name.trim();
     const contactName = form.contactName.trim();
     const email = form.email.trim();
+    const phoneNumber = form.phoneNumber.trim();
+    const password = form.password.trim();
+    const confirmPassword = form.confirmPassword.trim();
 
     if (!name) {
       setFormError("Business name is required.");
       return;
     }
+    if (!password || password !== confirmPassword) {
+      setFormError("Password and confirmation must match.");
+      return;
+    }
+    if (!form.expiryDate) {
+      setFormError("Expiry date is required.");
+      return;
+    }
+
+    const expiryDate = new Date(form.expiryDate).toISOString();
 
     if (editingId) {
-      const updated = await updateBusiness(editingId, { name, contactName, email });
+      const loginId = form.loginId.trim();
+      if (!loginId) {
+        setFormError("Login ID is required.");
+        return;
+      }
+
+      const { business: updated, error } = await updateBusiness(editingId, {
+        name,
+        contactName,
+        email,
+        phoneNumber,
+        loginId,
+        password,
+        status: form.status,
+      });
+      if (error) {
+        setFormError(error);
+        return;
+      }
       if (updated) {
+        const withSubscription = await updateBusinessSubscription(editingId, {
+          plan: form.plan,
+          expiryDate,
+        });
         setBusinesses((current) =>
-          current.map((business) => (business.id === editingId ? updated : business))
+          current.map((business) =>
+            business.id === editingId ? withSubscription ?? updated : business
+          )
         );
       }
       setFormOpen(false);
@@ -156,14 +245,33 @@ export default function BusinessesPage() {
       return;
     }
 
-    const created = await createBusiness({ id, name, contactName, email });
-    setBusinesses((current) => [...current, created]);
+    const loginId = form.loginId.trim() || suggestLoginId(id, businesses);
+
+    const { business: created, error } = await createBusiness({
+      id,
+      name,
+      contactName,
+      email,
+      phoneNumber,
+      loginId,
+      password,
+      plan: form.plan,
+      expiryDate,
+      status: form.status,
+    });
+    if (error) {
+      setFormError(error);
+      return;
+    }
+    if (created) {
+      setBusinesses((current) => [...current, created]);
+    }
     setFormOpen(false);
   }
 
   async function handleToggleStatus(business: Business) {
     const nextStatus = business.status === "active" ? "inactive" : "active";
-    const updated = await setBusinessStatus(business.id, nextStatus);
+    const { business: updated } = await updateBusiness(business.id, { status: nextStatus });
     if (updated) {
       setBusinesses((current) =>
         current.map((existing) => (existing.id === business.id ? updated : existing))
@@ -181,18 +289,6 @@ export default function BusinessesPage() {
   function handleLoginAsBusiness(business: Business) {
     startImpersonation(business.id);
     router.push("/app");
-  }
-
-  async function handleConfirmReset() {
-    if (!resetTarget) return;
-    const updated = await resetBusinessPassword(resetTarget.id);
-    if (updated) {
-      setBusinesses((current) =>
-        current.map((existing) => (existing.id === resetTarget.id ? updated : existing))
-      );
-      setResetDone(updated);
-    }
-    setResetTarget(null);
   }
 
   return (
@@ -215,7 +311,7 @@ export default function BusinessesPage() {
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search businesses..."
+                placeholder="Search by name, Login ID, or email..."
                 className="pl-9"
               />
             </div>
@@ -229,12 +325,12 @@ export default function BusinessesPage() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Business Name</TableHead>
-                  <TableHead>Business ID</TableHead>
                   <TableHead>Login ID</TableHead>
-                  <TableHead>Contact Name</TableHead>
+                  <TableHead>Password</TableHead>
                   <TableHead>Email</TableHead>
+                  <TableHead>Subscription Plan</TableHead>
+                  <TableHead>Expiry Date</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Created</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -250,20 +346,22 @@ export default function BusinessesPage() {
                     <TableRow key={business.id}>
                       <TableCell className="font-medium">{business.name}</TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">
-                        {business.id}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
                         {business.loginId}
                       </TableCell>
-                      <TableCell>{business.contactName || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">
+                        {business.password}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {business.email || "—"}
                       </TableCell>
-                      <TableCell>
-                        <StatusBadge status={business.status} />
+                      <TableCell className="capitalize">
+                        {getSubscriptionPlan(business.subscription.plan).name}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {formatDate(business.createdAt)}
+                        {formatDate(business.subscription.expiryDate)}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={displayStatus(business)} />
                       </TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -289,9 +387,6 @@ export default function BusinessesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleLoginAsBusiness(business)}>
                               Login As Business
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setResetTarget(business)}>
-                              Reset Password
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleToggleStatus(business)}>
                               {business.status === "active" ? "Deactivate" : "Activate"}
@@ -326,7 +421,7 @@ export default function BusinessesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label htmlFor="business-name">Business Name</Label>
               <Input
@@ -349,7 +444,7 @@ export default function BusinessesPage() {
               />
               {!editingId && (
                 <p className="text-xs text-muted-foreground">
-                  Used in the business's share link and can't be changed later.
+                  Used in the business&apos;s share link and can&apos;t be changed later.
                 </p>
               )}
             </div>
@@ -377,6 +472,121 @@ export default function BusinessesPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="business-phone">Phone Number</Label>
+              <Input
+                id="business-phone"
+                type="tel"
+                value={form.phoneNumber}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, phoneNumber: event.target.value }))
+                }
+                placeholder="e.g. +60123456789"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business-login-id">Login ID</Label>
+              <Input
+                id="business-login-id"
+                value={form.loginId}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, loginId: event.target.value }))
+                }
+                placeholder={editingId ? undefined : "auto-generated if left blank"}
+                className="font-mono text-xs"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="business-password">Password</Label>
+                <Input
+                  id="business-password"
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder={editingId ? undefined : DEFAULT_BUSINESS_PASSWORD}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="business-confirm-password">Confirm Password</Label>
+                <Input
+                  id="business-confirm-password"
+                  value={form.confirmPassword}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))
+                  }
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business-plan">Subscription Plan</Label>
+              <Select
+                value={form.plan}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, plan: value as SubscriptionPlanId }))
+                }
+              >
+                <SelectTrigger id="business-plan" className="w-full">
+                  <SelectValue>
+                    {(value: SubscriptionPlanId) => getSubscriptionPlan(value).name}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBSCRIPTION_PLAN_LIST.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business-expiry">Expiry Date</Label>
+              <Input
+                id="business-expiry"
+                type="date"
+                value={form.expiryDate}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, expiryDate: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="business-status">Status</Label>
+              <Select
+                value={form.status}
+                onValueChange={(value) =>
+                  setForm((prev) => ({ ...prev, status: value as BusinessStatus }))
+                }
+              >
+                <SelectTrigger id="business-status" className="w-full">
+                  <SelectValue className="capitalize" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUSES.map((status) => (
+                    <SelectItem key={status} value={status} className="capitalize">
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {formError && <p className="text-sm text-destructive">{formError}</p>}
           </div>
 
@@ -392,12 +602,8 @@ export default function BusinessesPage() {
       <Dialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent className="max-w-md p-6">
           <DialogHeader>
-            <DialogTitle>Delete business?</DialogTitle>
-            <DialogDescription>
-              This will permanently remove{" "}
-              <span className="font-medium text-foreground">{deleteTarget?.name}</span> and stop
-              it from appearing anywhere in the platform. This can't be undone.
-            </DialogDescription>
+            <DialogTitle>Delete Business?</DialogTitle>
+            <DialogDescription>This action cannot be undone.</DialogDescription>
           </DialogHeader>
 
           <DialogFooter className="mt-6">
@@ -405,47 +611,8 @@ export default function BusinessesPage() {
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleConfirmDelete}>
-              Delete Business
+              Delete
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(resetTarget)} onOpenChange={(open) => !open && setResetTarget(null)}>
-        <DialogContent className="max-w-md p-6">
-          <DialogHeader>
-            <DialogTitle>Reset password?</DialogTitle>
-            <DialogDescription>
-              This will reset{" "}
-              <span className="font-medium text-foreground">{resetTarget?.name}</span>&apos;s
-              password to the default and require them to set a new one on their next login.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-6">
-            <Button variant="outline" onClick={() => setResetTarget(null)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConfirmReset}>Reset Password</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(resetDone)} onOpenChange={(open) => !open && setResetDone(null)}>
-        <DialogContent className="max-w-md p-6">
-          <DialogHeader>
-            <DialogTitle>Password reset</DialogTitle>
-            <DialogDescription>
-              {resetDone?.name}&apos;s Login ID is{" "}
-              <span className="font-mono text-foreground">{resetDone?.loginId}</span> and their
-              password has been reset to the default (
-              <span className="font-mono text-foreground">{DEFAULT_BUSINESS_PASSWORD}</span>).
-              They&apos;ll be required to set a new password on their next login.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter className="mt-6">
-            <Button onClick={() => setResetDone(null)}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
